@@ -10,6 +10,7 @@ import {EndianConverter} from "@solarity/solidity-lib/libs/utils/EndianConverter
 import {LibSort} from "solady/src/utils/LibSort.sol";
 
 import {TargetsHelper} from "./libs/TargetsHelper.sol";
+import {HistoryProofVerifier} from "./libs/HistoryProofVerifier.sol";
 
 import {ISPVGateway} from "./interfaces/ISPVGateway.sol";
 
@@ -27,6 +28,7 @@ contract SPVGateway is ISPVGateway, Initializable {
         mapping(bytes32 => BlockData) blocksData;
         mapping(uint64 => bytes32) blocksHeightToBlockHash;
         bytes32 mainchainHead;
+        bytes32 historyBlocksTreeRoot;
         uint256 lastEpochCumulativeWork;
     }
 
@@ -74,6 +76,38 @@ contract SPVGateway is ISPVGateway, Initializable {
         _getSPVGatewayStorage().lastEpochCumulativeWork = cumulativeWork_;
 
         emit MainchainHeadUpdated(blockHeight_, blockHash_);
+    }
+
+    function __SPVGateway_init(
+        bytes calldata blockHeaderRaw_,
+        uint64 blockHeight_,
+        uint256 cumulativeWork_,
+        bytes32 historyBlocksTreeRoot_,
+        HistoryProofVerifier.HistoryProofData calldata proofData_
+    ) external initializer {
+        (BlockHeader.HeaderData memory blockHeader_, bytes32 blockHash_) = _parseBlockHeaderRaw(
+            blockHeaderRaw_
+        );
+
+        // require(blockHeight_ == 0, InvalidInitialBlockHeight(blockHeight_));
+
+        HistoryProofVerifier.verify(
+            historyBlocksTreeRoot_,
+            blockHash_,
+            blockHeight_,
+            cumulativeWork_,
+            proofData_
+        );
+
+        _addBlock(blockHeader_, blockHash_, blockHeight_);
+        _getSPVGatewayStorage().historyBlocksTreeRoot = historyBlocksTreeRoot_;
+        _getSPVGatewayStorage().lastEpochCumulativeWork = cumulativeWork_;
+
+        emit MainchainHeadUpdated(blockHeight_, blockHash_);
+    }
+
+    function doubleSHA256(bytes memory data_) external pure returns (bytes32) {
+        return sha256(abi.encodePacked(sha256(data_)));
     }
 
     function _getSPVGatewayStorage() private pure returns (SPVGatewayStorage storage _spvs) {
@@ -170,6 +204,10 @@ contract SPVGateway is ISPVGateway, Initializable {
     /// @inheritdoc ISPVGateway
     function getMainchainHeight() public view returns (uint64) {
         return getBlockHeight(_getSPVGatewayStorage().mainchainHead);
+    }
+
+    function getHistoryBlocksTreeRoot() public view returns (bytes32) {
+        return _getSPVGatewayStorage().historyBlocksTreeRoot;
     }
 
     /// @inheritdoc ISPVGateway
