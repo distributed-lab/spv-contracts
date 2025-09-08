@@ -28,7 +28,6 @@ contract SPVGateway is ISPVGateway, Initializable {
         mapping(bytes32 => BlockData) blocksData;
         mapping(uint64 => bytes32) blocksHeightToBlockHash;
         bytes32 mainchainHead;
-        bytes32 historyBlocksTreeRoot;
         uint256 lastEpochCumulativeWork;
     }
 
@@ -53,9 +52,7 @@ contract SPVGateway is ISPVGateway, Initializable {
         });
         bytes32 genesisBlockHash_ = 0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f;
 
-        _addBlock(genesisBlockHeader_, genesisBlockHash_, 0);
-
-        emit MainchainHeadUpdated(0, genesisBlockHash_);
+        _initialize(genesisBlockHeader_, genesisBlockHash_, 0, 0);
     }
 
     function __SPVGateway_init(
@@ -67,47 +64,7 @@ contract SPVGateway is ISPVGateway, Initializable {
             blockHeaderRaw_
         );
 
-        require(
-            blockHeight_ == 0 || TargetsHelper.isTargetAdjustmentBlock(blockHeight_),
-            InvalidInitialBlockHeight(blockHeight_)
-        );
-
-        _addBlock(blockHeader_, blockHash_, blockHeight_);
-        _getSPVGatewayStorage().lastEpochCumulativeWork = cumulativeWork_;
-
-        emit MainchainHeadUpdated(blockHeight_, blockHash_);
-    }
-
-    function __SPVGateway_init(
-        bytes calldata blockHeaderRaw_,
-        uint64 blockHeight_,
-        uint256 cumulativeWork_,
-        bytes32 historyBlocksTreeRoot_,
-        HistoryProofVerifier.HistoryProofData calldata proofData_
-    ) external initializer {
-        (BlockHeader.HeaderData memory blockHeader_, bytes32 blockHash_) = _parseBlockHeaderRaw(
-            blockHeaderRaw_
-        );
-
-        // require(blockHeight_ == 0, InvalidInitialBlockHeight(blockHeight_));
-
-        HistoryProofVerifier.verify(
-            historyBlocksTreeRoot_,
-            blockHash_,
-            blockHeight_,
-            cumulativeWork_,
-            proofData_
-        );
-
-        _addBlock(blockHeader_, blockHash_, blockHeight_);
-        _getSPVGatewayStorage().historyBlocksTreeRoot = historyBlocksTreeRoot_;
-        _getSPVGatewayStorage().lastEpochCumulativeWork = cumulativeWork_;
-
-        emit MainchainHeadUpdated(blockHeight_, blockHash_);
-    }
-
-    function doubleSHA256(bytes memory data_) external pure returns (bytes32) {
-        return sha256(abi.encodePacked(sha256(data_)));
+        _initialize(blockHeader_, blockHash_, blockHeight_, cumulativeWork_);
     }
 
     function _getSPVGatewayStorage() private pure returns (SPVGatewayStorage storage _spvs) {
@@ -206,10 +163,6 @@ contract SPVGateway is ISPVGateway, Initializable {
         return getBlockHeight(_getSPVGatewayStorage().mainchainHead);
     }
 
-    function getHistoryBlocksTreeRoot() public view returns (bytes32) {
-        return _getSPVGatewayStorage().historyBlocksTreeRoot;
-    }
-
     /// @inheritdoc ISPVGateway
     function getBlockInfo(bytes32 blockHash_) external view returns (BlockInfo memory blockInfo_) {
         if (!blockExists(blockHash_)) {
@@ -284,6 +237,31 @@ contract SPVGateway is ISPVGateway, Initializable {
     /// @inheritdoc ISPVGateway
     function isInMainchain(bytes32 blockHash_) public view returns (bool) {
         return getBlockHash(getBlockHeight(blockHash_)) == blockHash_;
+    }
+
+    function _initialize(
+        BlockHeader.HeaderData memory blockHeader_,
+        bytes32 blockHash_,
+        uint64 blockHeight_,
+        uint256 cumulativeWork_
+    ) internal {
+        _addBlock(blockHeader_, blockHash_, blockHeight_);
+
+        if (blockHeight_ > 0) {
+            uint256 lastEpochCumulativeWork_ = cumulativeWork_;
+
+            if (!TargetsHelper.isTargetAdjustmentBlock(blockHeight_)) {
+                bytes32 target_ = TargetsHelper.bitsToTarget(blockHeader_.bits);
+
+                lastEpochCumulativeWork_ -= target_.countCumulativeWork(
+                    TargetsHelper.getEpochBlockNumber(blockHeight_)
+                );
+            }
+
+            _getSPVGatewayStorage().lastEpochCumulativeWork = cumulativeWork_;
+        }
+
+        emit MainchainHeadUpdated(blockHeight_, blockHash_);
     }
 
     function _addBlock(

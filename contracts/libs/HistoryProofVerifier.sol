@@ -26,7 +26,7 @@ library HistoryProofVerifier {
     error InvalidProof();
     error InvalidHistoryBlocksTreeRoot();
 
-    function verify(
+    function verifyHistoryProof(
         bytes32 historyBlocksTreeRoot_,
         bytes32 blockHash_,
         uint64 blockHeight_,
@@ -49,6 +49,58 @@ library HistoryProofVerifier {
         );
 
         return true;
+    }
+
+    function verifyLevel2Proof(
+        bytes32[] calldata level2MerkleProof_,
+        bytes32 level2BlocksTreeRoot_,
+        bytes32 level1Root_,
+        uint256 chunkNumber_
+    ) internal pure returns (bool) {
+        return
+            processLevel2Proof(level2MerkleProof_, level1Root_, chunkNumber_) ==
+            level2BlocksTreeRoot_;
+    }
+
+    function verifyLevel1Proof(
+        bytes32[] calldata level1MerkleProof_,
+        bytes32 level1BlocksTreeRoot_,
+        bytes32 blockHash_,
+        uint256 blockHeight_
+    ) internal pure returns (bool) {
+        return
+            processLevel1Proof(level1MerkleProof_, blockHash_, blockHeight_) ==
+            level1BlocksTreeRoot_;
+    }
+
+    function processLevel2Proof(
+        bytes32[] calldata level2MerkleProof_,
+        bytes32 level1Root_,
+        uint256 chunkNumber_
+    ) internal pure returns (bytes32) {
+        return
+            _processProof(
+                level2MerkleProof_,
+                level1Root_,
+                chunkNumber_,
+                hashLevel2HistoryTreeLeaf,
+                hashLevel2HistoryTreeNode
+            );
+    }
+
+    function processLevel1Proof(
+        bytes32[] calldata level1MerkleProof_,
+        bytes32 blockHash_,
+        uint256 blockHeight_
+    ) internal pure returns (bytes32) {
+        return
+            _processProof(
+                level1MerkleProof_,
+                blockHash_,
+                getIndexInChunk(blockHeight_),
+                hashLevel1HistoryTreeLeaf,
+                hashLevel1HistoryTreeNode
+            );
     }
 
     function getHistoryBlocksTreeRoot(
@@ -87,6 +139,36 @@ library HistoryProofVerifier {
         return uint256(proofData_.publicInputs[PROOF_CUMULATIVE_WORK_OFFSET]);
     }
 
+    function getChunkNumber(uint256 blockHeight_) internal pure returns (uint256) {
+        return blockHeight_ / CHUNK_SIZE;
+    }
+
+    function getIndexInChunk(uint256 blockHeight_) internal pure returns (uint256) {
+        return blockHeight_ % CHUNK_SIZE;
+    }
+
+    function hashLevel2HistoryTreeNode(
+        bytes32 left_,
+        bytes32 right_
+    ) internal pure returns (bytes32) {
+        return _doubleSHA256(abi.encode("node2", left_, right_));
+    }
+
+    function hashLevel2HistoryTreeLeaf(bytes32 value_) internal pure returns (bytes32) {
+        return _doubleSHA256(abi.encode("leaf2", value_));
+    }
+
+    function hashLevel1HistoryTreeNode(
+        bytes32 left_,
+        bytes32 right_
+    ) internal pure returns (bytes32) {
+        return _doubleSHA256(abi.encode("node1", left_, right_));
+    }
+
+    function hashLevel1HistoryTreeLeaf(bytes32 value_) internal pure returns (bytes32) {
+        return _doubleSHA256(abi.encode("leaf1", value_));
+    }
+
     function _countRootFromFrontier(
         uint256 frontierLength_,
         HistoryProofData calldata proofData_
@@ -101,11 +183,40 @@ library HistoryProofVerifier {
                 continue;
             }
 
-            computedRoot_ = _hashHistoryTreeNode(
+            computedRoot_ = hashLevel2HistoryTreeNode(
                 currentNode_,
                 computedRoot_ == 0 ? _getZeroNodeHash(i) : computedRoot_
             );
         }
+    }
+
+    function _processProof(
+        bytes32[] calldata merkleProof_,
+        bytes32 value_,
+        uint256 valueKey_,
+        function(bytes32) pure returns (bytes32) hashLeaf_,
+        function(bytes32, bytes32) pure returns (bytes32) hashNode_
+    ) private pure returns (bytes32) {
+        bytes32 computedHash_ = hashLeaf_(value_);
+
+        uint256 pathIndex_ = valueKey_;
+        uint256 depth_ = merkleProof_.length;
+
+        while (depth_ > 0 && merkleProof_[depth_ - 1] == bytes32(0)) {
+            --depth_;
+        }
+
+        for (uint256 i = depth_; i > 0; --i) {
+            uint256 sIndex_ = i - 1;
+
+            if ((pathIndex_ >> sIndex_) & 1 == 1) {
+                computedHash_ = hashNode_(merkleProof_[sIndex_], computedHash_);
+            } else {
+                computedHash_ = hashNode_(computedHash_, merkleProof_[sIndex_]);
+            }
+        }
+
+        return computedHash_;
     }
 
     function _getBytes32FromInputs(
@@ -123,20 +234,12 @@ library HistoryProofVerifier {
 
     function _getZeroNodeHash(uint256 level_) private pure returns (bytes32) {
         if (level_ == 0) {
-            return _hashHistoryTreeLeaf(0);
+            return hashLevel2HistoryTreeLeaf(0);
         }
 
         bytes32 prevLevelNodeHash_ = _getZeroNodeHash(level_ - 1);
 
-        return _hashHistoryTreeNode(prevLevelNodeHash_, prevLevelNodeHash_);
-    }
-
-    function _hashHistoryTreeNode(bytes32 left_, bytes32 right_) private pure returns (bytes32) {
-        return _doubleSHA256(abi.encode("node2", left_, right_));
-    }
-
-    function _hashHistoryTreeLeaf(bytes32 value_) private pure returns (bytes32) {
-        return _doubleSHA256(abi.encode("leaf2", value_));
+        return hashLevel2HistoryTreeNode(prevLevelNodeHash_, prevLevelNodeHash_);
     }
 
     function _doubleSHA256(bytes memory data_) private pure returns (bytes32) {
