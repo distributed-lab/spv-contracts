@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import {IVerifier} from "../interfaces/IVerifier.sol";
+import {IHistoryProofVerifier} from "../interfaces/IHistoryProofVerifier.sol";
 
 library HistoryProofVerifier {
     uint256 private constant CHUNK_SIZE = 1024;
@@ -44,7 +44,10 @@ library HistoryProofVerifier {
             InvalidHistoryBlocksTreeRoot()
         );
         require(
-            IVerifier(proofData_.verifier).verify(proofData_.proof, proofData_.publicInputs),
+            IHistoryProofVerifier(proofData_.verifier).verify(
+                proofData_.proof,
+                proofData_.publicInputs
+            ),
             InvalidProof()
         );
 

@@ -10,7 +10,6 @@ import {EndianConverter} from "@solarity/solidity-lib/libs/utils/EndianConverter
 import {LibSort} from "solady/src/utils/LibSort.sol";
 
 import {TargetsHelper} from "./libs/TargetsHelper.sol";
-import {HistoryProofVerifier} from "./libs/HistoryProofVerifier.sol";
 
 import {ISPVGateway} from "./interfaces/ISPVGateway.sol";
 
