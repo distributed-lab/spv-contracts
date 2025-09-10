@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {ISPVGateway} from "./ISPVGateway.sol";
 
-interface IExtendedSPVGateway is ISPVGateway {
+interface IHistoricalSPVGateway is ISPVGateway {
     struct HistoryBlockInclusionProofData {
         bytes32[] level1MerkleProof;
         bytes32[] level2MerkleProof;

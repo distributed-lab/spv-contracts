@@ -243,7 +243,7 @@ contract SPVGateway is ISPVGateway, Initializable {
         bytes32 blockHash_,
         uint64 blockHeight_,
         uint256 cumulativeWork_
-    ) internal {
+    ) internal onlyInitializing {
         _addBlock(blockHeader_, blockHash_, blockHeight_);
 
         if (blockHeight_ > 0) {
@@ -253,11 +253,11 @@ contract SPVGateway is ISPVGateway, Initializable {
                 bytes32 target_ = TargetsHelper.bitsToTarget(blockHeader_.bits);
 
                 lastEpochCumulativeWork_ -= target_.countCumulativeWork(
-                    TargetsHelper.getEpochBlockNumber(blockHeight_)
+                    TargetsHelper.getEpochBlockNumber(blockHeight_) + 1
                 );
             }
 
-            _getSPVGatewayStorage().lastEpochCumulativeWork = cumulativeWork_;
+            _getSPVGatewayStorage().lastEpochCumulativeWork = lastEpochCumulativeWork_;
         }
 
         emit MainchainHeadUpdated(blockHeight_, blockHash_);

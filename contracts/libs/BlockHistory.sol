@@ -5,7 +5,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IHistoryProofVerifier} from "../interfaces/IHistoryProofVerifier.sol";
 
-library HistoryProofVerifier {
+library BlockHistory {
     uint256 private constant CHUNK_SIZE = 1024;
 
     uint256 private constant PROOF_BLOCK_HASH_OFFSET = 0;
@@ -154,22 +154,22 @@ library HistoryProofVerifier {
         bytes32 left_,
         bytes32 right_
     ) internal pure returns (bytes32) {
-        return _doubleSHA256(abi.encode("node2", left_, right_));
+        return sha256(abi.encodePacked("node2", left_, right_));
     }
 
     function hashLevel2HistoryTreeLeaf(bytes32 value_) internal pure returns (bytes32) {
-        return _doubleSHA256(abi.encode("leaf2", value_));
+        return sha256(abi.encodePacked("leaf2", value_));
     }
 
     function hashLevel1HistoryTreeNode(
         bytes32 left_,
         bytes32 right_
     ) internal pure returns (bytes32) {
-        return _doubleSHA256(abi.encode("node1", left_, right_));
+        return sha256(abi.encodePacked("node1", left_, right_));
     }
 
     function hashLevel1HistoryTreeLeaf(bytes32 value_) internal pure returns (bytes32) {
-        return _doubleSHA256(abi.encode("leaf1", value_));
+        return sha256(abi.encodePacked("leaf1", value_));
     }
 
     function _countRootFromFrontier(
@@ -182,14 +182,23 @@ library HistoryProofVerifier {
                 PROOF_FRONTIER_OFFSET + 32 * i
             );
 
-            if (currentNode_ == 0) {
+            if (currentNode_ == 0 && computedRoot_ == 0) {
+                // continue for the first not empty node
                 continue;
             }
 
-            computedRoot_ = hashLevel2HistoryTreeNode(
-                currentNode_,
-                computedRoot_ == 0 ? _getZeroNodeHash(i) : computedRoot_
-            );
+            bytes32 left_;
+            bytes32 right_;
+
+            if (i == 0) {
+                (left_, right_) = (currentNode_, _getZeroNodeHash(i));
+            } else if (currentNode_ == 0) {
+                (left_, right_) = (computedRoot_, _getZeroNodeHash(i));
+            } else {
+                (left_, right_) = (currentNode_, computedRoot_);
+            }
+
+            computedRoot_ = hashLevel2HistoryTreeNode(left_, right_);
         }
     }
 
@@ -243,9 +252,5 @@ library HistoryProofVerifier {
         bytes32 prevLevelNodeHash_ = _getZeroNodeHash(level_ - 1);
 
         return hashLevel2HistoryTreeNode(prevLevelNodeHash_, prevLevelNodeHash_);
-    }
-
-    function _doubleSHA256(bytes memory data_) private pure returns (bytes32) {
-        return sha256(abi.encodePacked(sha256(data_)));
     }
 }

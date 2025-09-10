@@ -1,41 +1,39 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-
 import {BlockHeader} from "@solarity/solidity-lib/libs/bitcoin/BlockHeader.sol";
 import {TxMerkleProof} from "@solarity/solidity-lib/libs/bitcoin/TxMerkleProof.sol";
 import {EndianConverter} from "@solarity/solidity-lib/libs/utils/EndianConverter.sol";
 
 import {TargetsHelper} from "./libs/TargetsHelper.sol";
-import {HistoryProofVerifier} from "./libs/HistoryProofVerifier.sol";
+import {BlockHistory} from "./libs/BlockHistory.sol";
 
-import {IExtendedSPVGateway} from "./interfaces/IExtendedSPVGateway.sol";
+import {IHistoricalSPVGateway} from "./interfaces/IHistoricalSPVGateway.sol";
 
 import {SPVGateway} from "./SPVGateway.sol";
 
-contract ExtendedSPVGateway is IExtendedSPVGateway, SPVGateway {
+contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
     using BlockHeader for bytes;
     using TargetsHelper for bytes32;
     using EndianConverter for bytes32;
-    using HistoryProofVerifier for bytes32[];
+    using BlockHistory for bytes32[];
 
-    bytes32 public constant SPV_GATEWAY_HISTORY_STORAGE_SLOT =
-        keccak256("spv.gateway.extended.spv.gateway.storage");
+    bytes32 public constant HISTORICAL_SPV_GATEWAY_STORAGE_SLOT =
+        keccak256("spv.gateway.historical.spv.gateway.storage");
 
-    struct ExtendedSPVGatewayStorage {
+    struct HistoricalSPVGatewayStorage {
         bytes32 historyBlocksTreeRoot;
     }
 
-    function _getExtendedSPVGatewayStorage()
+    function _getHistoricalSPVGatewayStorage()
         private
         pure
-        returns (ExtendedSPVGatewayStorage storage _spvhs)
+        returns (HistoricalSPVGatewayStorage storage _hspvs)
     {
-        bytes32 slot_ = SPV_GATEWAY_STORAGE_SLOT;
+        bytes32 slot_ = HISTORICAL_SPV_GATEWAY_STORAGE_SLOT;
 
         assembly {
-            _spvhs.slot := slot_
+            _hspvs.slot := slot_
         }
     }
 
@@ -44,13 +42,13 @@ contract ExtendedSPVGateway is IExtendedSPVGateway, SPVGateway {
         uint64 blockHeight_,
         uint256 cumulativeWork_,
         bytes32 historyBlocksTreeRoot_,
-        HistoryProofVerifier.HistoryProofData calldata proofData_
+        BlockHistory.HistoryProofData calldata proofData_
     ) external initializer {
         (BlockHeader.HeaderData memory blockHeader_, bytes32 blockHash_) = _parseBlockHeaderRaw(
             blockHeaderRaw_
         );
 
-        HistoryProofVerifier.verifyHistoryProof(
+        BlockHistory.verifyHistoryProof(
             historyBlocksTreeRoot_,
             blockHash_,
             blockHeight_,
@@ -60,7 +58,7 @@ contract ExtendedSPVGateway is IExtendedSPVGateway, SPVGateway {
 
         _initialize(blockHeader_, blockHash_, blockHeight_, cumulativeWork_);
 
-        _getExtendedSPVGatewayStorage().historyBlocksTreeRoot = historyBlocksTreeRoot_;
+        _getHistoricalSPVGatewayStorage().historyBlocksTreeRoot = historyBlocksTreeRoot_;
     }
 
     function checkHistoryTxInclusion(
@@ -95,9 +93,7 @@ contract ExtendedSPVGateway is IExtendedSPVGateway, SPVGateway {
             inclusionProofData_.blockHash,
             inclusionProofData_.blockHeight
         );
-        uint256 chunkNumber_ = HistoryProofVerifier.getChunkNumber(
-            inclusionProofData_.blockHeight
-        );
+        uint256 chunkNumber_ = BlockHistory.getChunkNumber(inclusionProofData_.blockHeight);
 
         return
             inclusionProofData_.level2MerkleProof.verifyLevel2Proof(
@@ -108,6 +104,6 @@ contract ExtendedSPVGateway is IExtendedSPVGateway, SPVGateway {
     }
 
     function getHistoryBlocksTreeRoot() public view returns (bytes32) {
-        return _getExtendedSPVGatewayStorage().historyBlocksTreeRoot;
+        return _getHistoricalSPVGatewayStorage().historyBlocksTreeRoot;
     }
 }
