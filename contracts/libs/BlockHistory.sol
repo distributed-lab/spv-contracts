@@ -3,10 +3,13 @@ pragma solidity ^0.8.28;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
+import {LibBit} from "solady/src/utils/LibBit.sol";
+
 import {IHistoryProofVerifier} from "../interfaces/IHistoryProofVerifier.sol";
 
 library BlockHistory {
     uint256 private constant CHUNK_SIZE = 1024;
+    uint256 private constant LEVEL1_TREE_MAX_DEPTH = 10;
 
     uint256 private constant PROOF_BLOCK_HASH_OFFSET = 0;
     uint256 private constant PROOF_MEDIAN_TIMES_OFFSET = 32;
@@ -58,11 +61,17 @@ library BlockHistory {
         bytes32[] calldata level2MerkleProof_,
         bytes32 level2BlocksTreeRoot_,
         bytes32 level1Root_,
+        uint256 totalChunksNumber_,
         uint256 chunkNumber_
     ) internal pure returns (bool) {
-        return
-            processLevel2Proof(level2MerkleProof_, level1Root_, chunkNumber_) ==
-            level2BlocksTreeRoot_;
+        bytes32 processedLevel2Proof = processLevel2Proof(
+            level2MerkleProof_,
+            level1Root_,
+            totalChunksNumber_,
+            chunkNumber_
+        );
+
+        return processedLevel2Proof == level2BlocksTreeRoot_;
     }
 
     function verifyLevel1Proof(
@@ -79,13 +88,14 @@ library BlockHistory {
     function processLevel2Proof(
         bytes32[] calldata level2MerkleProof_,
         bytes32 level1Root_,
+        uint256 totalChunksNumber_,
         uint256 chunkNumber_
     ) internal pure returns (bytes32) {
         return
             _processProof(
                 level2MerkleProof_,
                 level1Root_,
-                chunkNumber_,
+                getLevel2HistoryTreeKey(chunkNumber_, totalChunksNumber_),
                 hashLevel2HistoryTreeLeaf,
                 hashLevel2HistoryTreeNode
             );
@@ -100,7 +110,7 @@ library BlockHistory {
             _processProof(
                 level1MerkleProof_,
                 blockHash_,
-                getIndexInChunk(blockHeight_),
+                getLevel1HistoryTreeKey(blockHeight_),
                 hashLevel1HistoryTreeLeaf,
                 hashLevel1HistoryTreeNode
             );
@@ -148,6 +158,17 @@ library BlockHistory {
 
     function getIndexInChunk(uint256 blockHeight_) internal pure returns (uint256) {
         return blockHeight_ % CHUNK_SIZE;
+    }
+
+    function getLevel2HistoryTreeKey(
+        uint256 chunkNumber_,
+        uint256 totalChunksNumber_
+    ) internal pure returns (uint256) {
+        return _getHistoryTreeKey(chunkNumber_, Math.log2(totalChunksNumber_) + 1);
+    }
+
+    function getLevel1HistoryTreeKey(uint256 blockHeight_) internal pure returns (uint256) {
+        return _getHistoryTreeKey(getIndexInChunk(blockHeight_), LEVEL1_TREE_MAX_DEPTH);
     }
 
     function hashLevel2HistoryTreeNode(
@@ -252,5 +273,14 @@ library BlockHistory {
         bytes32 prevLevelNodeHash_ = _getZeroNodeHash(level_ - 1);
 
         return hashLevel2HistoryTreeNode(prevLevelNodeHash_, prevLevelNodeHash_);
+    }
+
+    function _getHistoryTreeKey(
+        uint256 indexInTree_,
+        uint256 maxTreeDepth_
+    ) private pure returns (uint256) {
+        uint256 blockIndexReversed_ = LibBit.reverseBits(indexInTree_);
+
+        return blockIndexReversed_ >> (256 - maxTreeDepth_);
     }
 }

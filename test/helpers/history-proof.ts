@@ -72,10 +72,10 @@ export function hashLevel2TreeLeaf(value: string): string {
   return ethers.solidityPackedSha256(["string", "bytes32"], ["leaf2", value]);
 }
 
-function hashLevel1TreeNode(left: BytesLike, right: BytesLike): HexString {
+export function hashLevel1TreeNode(left: BytesLike, right: BytesLike): HexString {
   return ethers.solidityPackedSha256(["string", "bytes32", "bytes32"], ["node1", left, right]);
 }
 
-function hashLevel1TreeLeaf(value: string): string {
+export function hashLevel1TreeLeaf(value: string): string {
   return ethers.solidityPackedSha256(["string", "bytes32"], ["leaf1", value]);
 }

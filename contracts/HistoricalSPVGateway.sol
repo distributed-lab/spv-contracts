@@ -22,6 +22,7 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
         keccak256("spv.gateway.historical.spv.gateway.storage");
 
     struct HistoricalSPVGatewayStorage {
+        uint256 historyBlocksCount;
         bytes32 historyBlocksTreeRoot;
     }
 
@@ -58,6 +59,7 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
 
         _initialize(blockHeader_, blockHash_, blockHeight_, cumulativeWork_);
 
+        _getHistoricalSPVGatewayStorage().historyBlocksCount = blockHeight_;
         _getHistoricalSPVGatewayStorage().historyBlocksTreeRoot = historyBlocksTreeRoot_;
     }
 
@@ -93,14 +95,18 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
             inclusionProofData_.blockHash,
             inclusionProofData_.blockHeight
         );
-        uint256 chunkNumber_ = BlockHistory.getChunkNumber(inclusionProofData_.blockHeight);
 
         return
             inclusionProofData_.level2MerkleProof.verifyLevel2Proof(
                 getHistoryBlocksTreeRoot(),
                 level1Root_,
-                chunkNumber_
+                BlockHistory.getChunkNumber(getHistoryBlocksCount()),
+                BlockHistory.getChunkNumber(inclusionProofData_.blockHeight)
             );
+    }
+
+    function getHistoryBlocksCount() public view returns (uint256) {
+        return _getHistoricalSPVGatewayStorage().historyBlocksCount;
     }
 
     function getHistoryBlocksTreeRoot() public view returns (bytes32) {
