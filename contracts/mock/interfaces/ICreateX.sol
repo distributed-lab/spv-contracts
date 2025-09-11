@@ -14,6 +14,11 @@ interface ICreateX {
         Values memory values_
     ) external payable returns (address newContract_);
 
+    function deployCreate2(
+        bytes32 salt_,
+        bytes memory initCode_
+    ) external payable returns (address newContract_);
+
     function computeCreate2Address(
         bytes32 salt_,
         bytes32 initCodeHash_
