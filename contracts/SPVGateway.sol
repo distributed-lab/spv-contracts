@@ -51,9 +51,7 @@ contract SPVGateway is ISPVGateway, Initializable {
         });
         bytes32 genesisBlockHash_ = 0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f;
 
-        _addBlock(genesisBlockHeader_, genesisBlockHash_, 0);
-
-        emit MainchainHeadUpdated(0, genesisBlockHash_);
+        _initialize(genesisBlockHeader_, genesisBlockHash_, 0, 0);
     }
 
     function __SPVGateway_init(
@@ -65,15 +63,7 @@ contract SPVGateway is ISPVGateway, Initializable {
             blockHeaderRaw_
         );
 
-        require(
-            blockHeight_ == 0 || TargetsHelper.isTargetAdjustmentBlock(blockHeight_),
-            InvalidInitialBlockHeight(blockHeight_)
-        );
-
-        _addBlock(blockHeader_, blockHash_, blockHeight_);
-        _getSPVGatewayStorage().lastEpochCumulativeWork = cumulativeWork_;
-
-        emit MainchainHeadUpdated(blockHeight_, blockHash_);
+        _initialize(blockHeader_, blockHash_, blockHeight_, cumulativeWork_);
     }
 
     function _getSPVGatewayStorage() private pure returns (SPVGatewayStorage storage _spvs) {
@@ -246,6 +236,31 @@ contract SPVGateway is ISPVGateway, Initializable {
     /// @inheritdoc ISPVGateway
     function isInMainchain(bytes32 blockHash_) public view returns (bool) {
         return getBlockHash(getBlockHeight(blockHash_)) == blockHash_;
+    }
+
+    function _initialize(
+        BlockHeader.HeaderData memory blockHeader_,
+        bytes32 blockHash_,
+        uint64 blockHeight_,
+        uint256 cumulativeWork_
+    ) internal onlyInitializing {
+        _addBlock(blockHeader_, blockHash_, blockHeight_);
+
+        if (blockHeight_ > 0) {
+            uint256 lastEpochCumulativeWork_ = cumulativeWork_;
+
+            if (!TargetsHelper.isTargetAdjustmentBlock(blockHeight_)) {
+                bytes32 target_ = TargetsHelper.bitsToTarget(blockHeader_.bits);
+
+                lastEpochCumulativeWork_ -= target_.countCumulativeWork(
+                    TargetsHelper.getEpochBlockNumber(blockHeight_) + 1
+                );
+            }
+
+            _getSPVGatewayStorage().lastEpochCumulativeWork = lastEpochCumulativeWork_;
+        }
+
+        emit MainchainHeadUpdated(blockHeight_, blockHash_);
     }
 
     function _addBlock(

@@ -38,13 +38,61 @@ The list parameters to be passed:
 5. `minConfirmationsCount` - Number of required mainchain confirmation for the block to have.
 
 > [!TIP]
-> Please check out [this test case](./test/SPVContract.test.ts#L223) for more integration information.
+> Please check out [this test case](./test/SPVGateway.test.ts#L223) for more integration information.
 
 ## Permissionlessness
 
-In order for the gateway to be truly permissionless, the contract's bootstrapping needs to be permissionless as well. We are working on a "proof-of-bitcoin" ZK proof to initialize the gateway in a trustless manner.
+In order for the gateway to be truly permissionless, the contract's initialization needs to be permissionless as well. Alongside the regular `SPVGateway`, the repository hosts a `HistoricalSPVGateway` contract, that uses a "proof-of-bitcoin" ZK proof for its initialization. This enables verification of historical Bitcoin blocks and transactions otherwise too expensive to include. Since syncing up the gateway from Bitcoin's genesis would cost ~100 ETH on the mainnet.
 
-This will enable verification of historical Bitcoin transactions otherwise too expensive to include. Syncing up the gateway from Bitcoin's genesis would cost ~100 ETH on the mainnet.
+# HistoricalSPVGateway
+
+`HistoricalSPVGateway` is an extension of the basic `SPVGateway` contract. It uses "proof-of-bitcoin" ZK proof that compresses the entire Bitcoin block history into a single Merkle root to be used during the contract's initialization. This root can then used to verify the "historical" existence of some blocks and transactions.
+
+> [!IMPORTANT]
+> Currently, the "proof-of-bitcoin" ZK proof is generated to the first *912384* Bitcoin blocks. The circuits source code can be found [here](https://github.com/distributed-lab/bitcoin-prover).
+
+## Building the History Merkle Tree
+
+In order to prove the historical block existence, you need to pass the corresponding Merkle path to a smart contract. For that, the entire historical Merkle tree needs to be built:
+
+1. Fetch all block hashes from the genesis block up to the height of `provedBlocksCount - 1`.
+2. Split these blocks into *1024-block* chunks.
+3. Create Level1 Merkle trees for each chunk.
+4. Create an array containing all the Level1 tree roots.
+5. Pad the array from the previous step with zeros for its length to reach the next power of 2.
+6. Create a Level2 Merkle tree, using the array from the previous step as the tree's values.
+
+> [!NOTE]
+> For the Level1 Merkle tree use `SHA256("leaf1" | blockHash)` and `SHA256("node1" | left | right)` for hashing leaves and nodes. And for the Level2 Merkle tree, `SHA256("leaf2" | level1MerkleRoot)` and `SHA256("node2" | left | right)` respectively.
+
+## Verifying History Bitcoin Blocks Inclusion
+
+To verify the existence of a historical Bitcoin block, call the `checkHistoryBlockInclusion` function.
+
+This function requires a `HistoryBlockInclusionProofData` struct as a parameter, which contains the following fields:
+
+1. `level1MerkleProof` - Level1 Merkle path for the block hash being checked.
+2. `level2MerkleProof` - Level2 Merkle path for the Level1 Merkle root (which is calculated from the `level1MerkleProof`)
+3. `blockHash` - Block hash to be checked.
+4. `blockHeight` - Block height of the passed block hash.
+
+> [!TIP]
+> Please check out [this test cases](./test/HistoricalSPVGateway.test.ts#L181) for more integration information.
+
+## Verifying History Bitcoin Tx Inclusion
+
+In order to verify the tx existence in the proven Bitcoin history, the `checkHistoryTxInclusion` function needs to be called. 
+
+The list of parameters to be passed:
+
+1. `merkleProof` - Merkle path for a given transaction to be checked. The Merkle path can either be built locally or by calling `gettxoutproof` on a Bitcoin node.
+2. `blockHeaderRaw` - Raw block header of the block to check the transaction's inclusion against.
+3. `txId` - Tx hash (Merkle leaf) to be checked.
+4. `txIndex` - The Merkle "direction bits" to decide on left or right hashing order.
+5. `blockInclusionProofData` - The proof data for the historical block hash inclusion.
+
+> [!TIP]
+> Please check out [this test case](./test/HistoricalSPVGateway.test.ts#L309) for more integration information.
 
 # Disclaimer
 

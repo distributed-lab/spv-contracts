@@ -1,6 +1,6 @@
 import hre from "hardhat";
 
-import { DeployConfig } from "./types";
+import { DeployConfig, HistoricalDeployConfig } from "./types";
 
 export async function getConfig(): Promise<DeployConfig> {
   if (hre.network.name == "localhost" || hre.network.name == "hardhat") {
@@ -9,6 +9,18 @@ export async function getConfig(): Promise<DeployConfig> {
 
   if (hre.network.name == "sepolia") {
     return (await import("./sepolia")).deployConfig;
+  }
+
+  throw new Error(`Config for network ${hre.network.name} is not specified`);
+}
+
+export async function getHistoricalConfig(): Promise<HistoricalDeployConfig> {
+  if (hre.network.name == "localhost" || hre.network.name == "hardhat") {
+    return (await import("./localhost")).historicalDeployConfig;
+  }
+
+  if (hre.network.name == "sepolia") {
+    return (await import("./sepolia")).historicalDeployConfig;
   }
 
   throw new Error(`Config for network ${hre.network.name} is not specified`);

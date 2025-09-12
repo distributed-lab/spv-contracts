@@ -3,8 +3,7 @@ import { SPVGateway__factory, ICreateX } from "@/generated-types/ethers";
 import { ethers } from "hardhat";
 
 export async function getSPVGatewayAddr(createXDeployer: ICreateX): Promise<string> {
-  const salt = getSPVGatewaySalt();
-  const guardedSalt = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["bytes32"], [salt]));
+  const guardedSalt = getGuardedSalt(getSPVGatewaySalt());
 
   const initcodeHash = ethers.keccak256(SPVGateway__factory.bytecode);
 
@@ -13,4 +12,8 @@ export async function getSPVGatewayAddr(createXDeployer: ICreateX): Promise<stri
 
 export function getSPVGatewaySalt(): string {
   return `0x0000000000000000000000000000000000000000000012341234123412341231`;
+}
+
+export function getGuardedSalt(salt: string): string {
+  return ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["bytes32"], [salt]));
 }

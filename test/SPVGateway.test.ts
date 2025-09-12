@@ -62,7 +62,7 @@ describe("SPVGateway", () => {
       await expect(tx).to.emit(spvGateway, "BlockHeaderAdded").withArgs(initBlockData.height, initBlockData.blockHash);
     });
 
-    it("should correctly init SPV contract from some block", async () => {
+    it("should correctly init SPV contract from some block that is difficulty adjustment block", async () => {
       const initBlockHeight = 802_368;
 
       const lastEpochCumulativeWork = getBlockHeaderData(newestBlocksDataFilePath, initBlockHeight - 1)
@@ -85,16 +85,28 @@ describe("SPVGateway", () => {
       expect(await spvGateway.getMainchainHeight()).to.be.eq(initBlockData.height);
     });
 
-    it("should get exception if pass invalid block height", async () => {
-      const initBlockHeight = 802_367;
-
-      const lastEpochCumulativeWork = getBlockHeaderData(newestBlocksDataFilePath, initBlockHeight - 1)
-        .parsedBlockHeader.chainwork;
+    it("should correctly init SPV contract from some block that is not difficulty adjustment block", async () => {
+      const initBlockHeight = 802_375;
       const initBlockData = getBlockHeaderData(newestBlocksDataFilePath, initBlockHeight);
 
-      await expect(spvGateway.__SPVGateway_init(initBlockData.rawHeader, initBlockData.height, lastEpochCumulativeWork))
-        .to.be.revertedWithCustomError(spvGateway, "InvalidInitialBlockHeight")
-        .withArgs(initBlockHeight);
+      const tx = await spvGateway.__SPVGateway_init(
+        initBlockData.rawHeader,
+        initBlockData.height,
+        initBlockData.parsedBlockHeader.chainwork,
+      );
+
+      await expect(tx)
+        .to.emit(spvGateway, "MainchainHeadUpdated")
+        .withArgs(initBlockData.height, initBlockData.blockHash);
+      await expect(tx).to.emit(spvGateway, "BlockHeaderAdded").withArgs(initBlockData.height, initBlockData.blockHash);
+
+      const lastEpochBlockHeight = 802_368;
+      const lastEpochCumulativeWork = getBlockHeaderData(newestBlocksDataFilePath, lastEpochBlockHeight - 1)
+        .parsedBlockHeader.chainwork;
+
+      expect(await spvGateway.getLastEpochCumulativeWork()).to.be.eq(lastEpochCumulativeWork);
+      expect(await spvGateway.getMainchainHead()).to.be.eq(initBlockData.blockHash);
+      expect(await spvGateway.getMainchainHeight()).to.be.eq(initBlockData.height);
     });
 
     it("should get exception if try to call init function twice", async () => {
