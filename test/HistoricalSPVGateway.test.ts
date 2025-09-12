@@ -73,7 +73,7 @@ describe("HistoricalSPVGateway", () => {
     const proof = getHistoryProofFromFile(historyProofDir);
     const publicInputs = getHistoryProofPublicInputsFromFile(historyProofDir);
 
-    await historicalSPVGateway["__SPVGateway_init(bytes,uint64,uint256,bytes32,(address,bytes32[],bytes))"](
+    await historicalSPVGateway.__HistoricalSPVGateway_init(
       initBlockHeader.rawHeader,
       initBlockHeader.height,
       initBlockHeader.parsedBlockHeader.chainwork,
@@ -122,7 +122,7 @@ describe("HistoricalSPVGateway", () => {
       const blocksCount = 912384n;
       const initBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, Number(blocksCount) - 1);
 
-      await historicalSPVGateway["__SPVGateway_init(bytes,uint64,uint256,bytes32,(address,bytes32[],bytes))"](
+      await historicalSPVGateway.__HistoricalSPVGateway_init(
         initBlockHeader.rawHeader,
         initBlockHeader.height,
         initBlockHeader.parsedBlockHeader.chainwork,
@@ -254,7 +254,7 @@ describe("HistoricalSPVGateway", () => {
       const blocksCount = 912384n;
       const initBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, Number(blocksCount) - 1);
 
-      await historicalSPVGateway["__SPVGateway_init(bytes,uint64,uint256,bytes32,(address,bytes32[],bytes))"](
+      await historicalSPVGateway.__HistoricalSPVGateway_init(
         initBlockHeader.rawHeader,
         initBlockHeader.height,
         initBlockHeader.parsedBlockHeader.chainwork,
@@ -406,7 +406,7 @@ describe("HistoricalSPVGateway", () => {
       const blocksCount = 912384n;
       const initBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, Number(blocksCount) - 1);
 
-      await historicalSPVGateway["__SPVGateway_init(bytes,uint64,uint256,bytes32,(address,bytes32[],bytes))"](
+      await historicalSPVGateway.__HistoricalSPVGateway_init(
         initBlockHeader.rawHeader,
         initBlockHeader.height,
         initBlockHeader.parsedBlockHeader.chainwork,

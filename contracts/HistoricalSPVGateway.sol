@@ -38,7 +38,7 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
         }
     }
 
-    function __SPVGateway_init(
+    function __HistoricalSPVGateway_init(
         bytes calldata blockHeaderRaw_,
         uint64 blockHeight_,
         uint256 cumulativeWork_,
