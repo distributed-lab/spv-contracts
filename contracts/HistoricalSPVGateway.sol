@@ -63,6 +63,7 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
         _getHistoricalSPVGatewayStorage().historyBlocksTreeRoot = historyBlocksTreeRoot_;
     }
 
+    /// @inheritdoc IHistoricalSPVGateway
     function checkHistoryTxInclusion(
         bytes32[] calldata merkleProof_,
         bytes calldata blockHeaderRaw_,
@@ -88,6 +89,7 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
         return TxMerkleProof.verify(merkleProof_, leRoot_, txId_, txIndex_);
     }
 
+    /// @inheritdoc IHistoricalSPVGateway
     function checkHistoryBlockInclusion(
         HistoryBlockInclusionProofData calldata inclusionProofData_
     ) public view returns (bool) {
@@ -105,10 +107,12 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
             );
     }
 
+    /// @inheritdoc IHistoricalSPVGateway
     function getHistoryBlocksCount() public view returns (uint256) {
         return _getHistoricalSPVGatewayStorage().historyBlocksCount;
     }
 
+    /// @inheritdoc IHistoricalSPVGateway
     function getHistoryBlocksTreeRoot() public view returns (bytes32) {
         return _getHistoricalSPVGatewayStorage().historyBlocksTreeRoot;
     }

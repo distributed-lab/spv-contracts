@@ -30,7 +30,7 @@ export = async (deployer: Deployer) => {
   const publicInputs = getHistoryProofPublicInputsFromFile(proofDirPath);
 
   const historicalSPVInitData = HistoricalSPVGateway__factory.createInterface().encodeFunctionData(
-    "__SPVGateway_init(bytes,uint64,uint256,bytes32,(address,bytes32[],bytes))",
+    "__HistoricalSPVGateway_init(bytes,uint64,uint256,bytes32,(address,bytes32[],bytes))",
     [
       config.blockHeader,
       config.blockHeight,
