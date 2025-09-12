@@ -42,99 +42,55 @@ The list parameters to be passed:
 
 ## Permissionlessness
 
-In order for the gateway to be truly permissionless, the contract's bootstrapping needs to be permissionless as well.
+In order for the gateway to be truly permissionless, the contract's initialization needs to be permissionless as well. Alongside the regular `SPVGateway`, the repository hosts a `HistoricalSPVGateway` contract, that uses a "proof-of-bitcoin" ZK proof for its initialization. This enables verification of historical Bitcoin blocks and transactions otherwise too expensive to include. Since syncing up the gateway from Bitcoin's genesis would cost ~100 ETH on the mainnet.
 
-To initialize the gateway contract in a trustless manner, there is an extension contract, `HistoricalSPVGateway`, that uses a "proof-of-bitcoin" ZK proof for the initial bootstrapping.
-More detailed information can be found in the extension section.
+# HistoricalSPVGateway
 
-This will enable verification of historical Bitcoin transactions otherwise too expensive to include. Syncing up the gateway from Bitcoin's genesis would cost ~100 ETH on the mainnet.
+`HistoricalSPVGateway` is an extension of the basic `SPVGateway` contract. It uses "proof-of-bitcoin" ZK proof that compresses the entire Bitcoin block history into a single Merkle root to be used during the contract's initialization. This root can then used to verify the "historical" existence of some blocks and transactions.
 
-# Extensions
+> [!IMPORTANT]
+> Currently, the "proof-of-bitcoin" ZK proof is generated to the first *912384* Bitcoin blocks. The circuits source code can be found [here](https://github.com/distributed-lab/bitcoin-prover).
 
-## HistoricalSPVGateway
+## Building the History Merkle Tree
 
-`HistoricalSPVGateway` is an extension of the basic `SPVGateway` contract. It allows for a "proof-of-bitcoin" ZK proof to be used during the initialization process to verify the correctness of the initial parameters. The ZK proof also contains public inputs that the `HistoricalSPVGateway` contract uses to build a Merkle root for the entire verified Bitcoin history.
+In order to prove the historical block existence, you need to pass the corresponding Merkle path to a smart contract. For that, the entire historical Merkle tree needs to be built:
 
-This enables two new functions: `checkHistoryBlockInclusion` and `checkHistoryTxInclusion`, which can be used to verify the inclusion of historical blocks and transactions, respectively.
-
-> [!TIP]
-> The "proof-of-bitcoin" circuits can be found [here](https://github.com/distributed-lab/bitcoin-prover).
-
-### History Merkle Root Calculation
-
-As mentioned above, the `HistoricalSPVGateway` contract calculates the history Merkle root from the public inputs of the "proof-of-bitcoin" ZK proof. This Merkle root is a bit unusual, so here are instructions on how to build the same Merkle root on your own.
-
-To understand the process, you need to be aware of a few key concepts.
-
-#### Recursive Proofs and Chunks
-
-First, it’s important to understand how the ZK circuits were built. Proving the entire Bitcoin history requires an immense amount of computational power. To make the circuits runnable on most computers, they use recursive proofs and process the history in chunks of **1024** blocks.
-
-Because the proof is recursive, we must somehow pass the Merkle tree built from previous proofs. This brings us to the second key point: the final Merkle tree has two levels:
-- Level1 is used to build an in-chunk tree for each **1024-block** segment.
-- Level2 uses the roots of the Level1 Merkle trees as the values for its leaves.
-
-[!NOTE]
-> Level1 Merkle trees use `SHA256(abi.encodePacked("leaf1", blockHash))` and `SHA256(abi.encodePacked("node1", left, right))` for hashing leaves and nodes.
-> Level2 Merkle trees use `SHA256(abi.encodePacked("leaf2", level1MerkleRoot))` and `SHA256(abi.encodePacked("node2", left, right))` for hashing leaves and nodes.
-
-#### Understanding the *Frontier*
-
-The next concept to grasp is the *frontier*. The *frontier* is the left part of the Level 2 Merkle tree, and it's returned in the public inputs. Simply put, it's an array of node hashes where the index corresponds to the level in the final Merkle tree.
-
-> [!NOTE]
-> The length of the *frontier* is calculated as  `Math.log2(provedBlocksCount / CHUNK_SIZE) + 1`.
-> `zeroNodeHash(level)` is a recursive hash function that returns a zero hash for a leaf if the level is 0, and a node hash for subsequent levels.
-
-#### Calculating the History Merkle Root on the Contract Side
-
-Finally, here is how to calculate the History Merkle root on the contract side:
-1. Count the length of the *frontier* from the `provedBlocksCount`.
-2. Check if `provedBlocksCount` is a power of 2.
-    1. If it is, the last element in the *frontier* is the History Merkle root.
-    2. If not, proceed to step 3.
-3. Iterate over all the *frontier* elements from the public inputs and calculate the History Merkle root according to the following rules:
-    1. If `currentNode` and `computedRoot` are both zero, move to the next iteration.
-    2. On the first iteration, the left element for hashing will be `currentNode` and the right will be `zeroNodeHash(0)`.
-    3. For subsequent iterations, if the `currentNode` is zero, the left element for hashing will be `computedRoot` and the right will be `zeroNodeHash(currentLevel)`.
-    4. In all other cases, the left element for hashing will be `currentNode` and the right will be `computedRoot`.
-    5. Use the hash function for the Level 2 Merkle tree with the left and right values from the previous steps.
-
-#### Calculating the History Merkle Root Off-chain
-
-To calculate the History Merkle Root off-chain, you need to perform the following steps:
 1. Fetch all block hashes from the genesis block up to the height of `provedBlocksCount - 1`.
 2. Split these blocks into *1024-block* chunks.
 3. Create Level1 Merkle trees for each chunk.
 4. Create an array containing all the Level1 tree roots.
-5. Pad array from the previous step with zeros to reach the next power of 2.
-6. Create a Level2 Merkle tree, using the array from the last step as the tree's values.
+5. Pad the array from the previous step with zeros for its length to reach the next power of 2.
+6. Create a Level2 Merkle tree, using the array from the previous step as the tree's values.
 
-### Verifying History Bitcoin blocks Inclusion
+[!NOTE]
+> For the Level1 Merkle tree use `SHA256("leaf1" | blockHash)` and `SHA256("node1" | left | right)` for hashing leaves and nodes.
+> For the Level2 Merkle tree use `SHA256("leaf2" | level1MerkleRoot)` and `SHA256("node2" | left | right)` for hashing leaves and nodes.
 
-To verify the existence of a historical Bitcoin block, you need to call the `checkHistoryBlockInclusion` function.
+## Verifying History Bitcoin Blocks Inclusion
+
+To verify the existence of a historical Bitcoin block, call the `checkHistoryBlockInclusion` function.
 
 This function requires a `HistoryBlockInclusionProofData` struct as a parameter, which contains the following fields:
 
 1. `level1MerkleProof` - Level1 Merkle path for the block hash being checked.
-2. `level2MerkleProof` - Level2 Merkle path for the Level1 Merkle root, which is calculated from the `level1MerkleProof`
+2. `level2MerkleProof` - Level2 Merkle path for the Level1 Merkle root (which is calculated from the `level1MerkleProof`)
 3. `blockHash` - Block hash to be checked.
 4. `blockHeight` - Block height of the passed block hash.
 
 > [!TIP]
 > Please check out [this test cases](./test/HistoricalSPVGateway.test.ts#L181) for more integration information.
 
-### Verifying History Bitcoin Tx Inclusion
+## Verifying History Bitcoin Tx Inclusion
 
-In order to verify the tx existence in the proved Bitcoin history, the `checkHistoryTxInclusion` function needs to be called. 
+In order to verify the tx existence in the proven Bitcoin history, the `checkHistoryTxInclusion` function needs to be called. 
 
-The list parameters to be passed:
+The list of parameters to be passed:
 
 1. `merkleProof` - Merkle path for a given transaction to be checked. The Merkle path can either be built locally or by calling `gettxoutproof` on a Bitcoin node.
 2. `blockHeaderRaw` - Raw block header of the block to check the transaction's inclusion against.
 3. `txId` - Tx hash (Merkle leaf) to be checked.
 4. `txIndex` - The Merkle "direction bits" to decide on left or right hashing order.
-5. `blockInclusionProofData` - The proof data for the block hash inclusion. For more details, refer to the description of the `checkHistoryBlockInclusion` function.
+5. `blockInclusionProofData` - The proof data for the historical block hash inclusion.
 
 > [!TIP]
 > Please check out [this test case](./test/HistoricalSPVGateway.test.ts#L309) for more integration information.
