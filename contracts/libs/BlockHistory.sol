@@ -7,6 +7,13 @@ import {LibBit} from "solady/src/utils/LibBit.sol";
 
 import {IHistoryProofVerifier} from "../interfaces/IHistoryProofVerifier.sol";
 
+/**
+ * @title BlockHistory
+ * @notice A library for verifying historical Bitcoin block and transaction inclusion proofs.
+ *
+ * This library provides a set of functions to verify "proof-of-bitcoin" ZK proofs and
+ * related Merkle proofs for both Level1 and Level2 Merkle trees.
+ */
 library BlockHistory {
     uint256 private constant CHUNK_SIZE = 1024;
     uint256 private constant LEVEL1_TREE_MAX_DEPTH = 10;
@@ -17,6 +24,12 @@ library BlockHistory {
     uint256 private constant PROOF_CUMULATIVE_WORK_OFFSET = 45;
     uint256 private constant PROOF_FRONTIER_OFFSET = 46;
 
+    /**
+     * @notice A struct containing the data for a ZK-SNARK proof.
+     * @param verifier The address of the proof verifier contract.
+     * @param publicInputs An array of public inputs for the proof.
+     * @param proof The serialized proof data.
+     */
     struct HistoryProofData {
         address verifier;
         bytes32[] publicInputs;
@@ -29,6 +42,15 @@ library BlockHistory {
     error InvalidProof();
     error InvalidHistoryBlocksTreeRoot();
 
+    /**
+     * @notice Verifies a ZK-SNARK proof for the Bitcoin history.
+     * @param historyBlocksTreeRoot_ The expected Merkle root of the historical blocks tree.
+     * @param blockHash_ The hash of the last block included in the proof.
+     * @param blockHeight_ The height of the last block included in the proof.
+     * @param cumulativeWork_ The cumulative work of the Bitcoin chain up to the last block.
+     * @param proofData_ The struct containing the proof and public inputs.
+     * @return A boolean indicating whether the proof is valid.
+     */
     function verifyHistoryProof(
         bytes32 historyBlocksTreeRoot_,
         bytes32 blockHash_,
@@ -57,6 +79,15 @@ library BlockHistory {
         return true;
     }
 
+    /**
+     * @notice Verifies a Merkle proof against a Level2 Merkle tree.
+     * @param level2MerkleProof_ The Merkle proof for the Level2 tree.
+     * @param level2BlocksTreeRoot_ The expected root of the Level2 tree.
+     * @param level1Root_ The root of the Level1 Merkle tree to be verified.
+     * @param totalChunksNumber_ The total number of chunks.
+     * @param chunkNumber_ The index of the chunk to be verified.
+     * @return A boolean indicating whether the proof is valid.
+     */
     function verifyLevel2Proof(
         bytes32[] calldata level2MerkleProof_,
         bytes32 level2BlocksTreeRoot_,
@@ -74,6 +105,14 @@ library BlockHistory {
         return processedLevel2Proof == level2BlocksTreeRoot_;
     }
 
+    /**
+     * @notice Verifies a Merkle proof against a Level1 Merkle tree.
+     * @param level1MerkleProof_ The Merkle proof for the Level1 tree.
+     * @param level1BlocksTreeRoot_ The expected root of the Level1 tree.
+     * @param blockHash_ The hash of the block to be verified.
+     * @param blockHeight_ The height of the block.
+     * @return A boolean indicating whether the proof is valid.
+     */
     function verifyLevel1Proof(
         bytes32[] calldata level1MerkleProof_,
         bytes32 level1BlocksTreeRoot_,
@@ -85,6 +124,14 @@ library BlockHistory {
             level1BlocksTreeRoot_;
     }
 
+    /**
+     * @notice Processes a Level2 Merkle proof to compute the final root.
+     * @param level2MerkleProof_ The Merkle proof path.
+     * @param level1Root_ The root of the Level1 Merkle tree.
+     * @param totalChunksNumber_ The total number of chunks.
+     * @param chunkNumber_ The index of the chunk.
+     * @return The computed Level2 Merkle root.
+     */
     function processLevel2Proof(
         bytes32[] calldata level2MerkleProof_,
         bytes32 level1Root_,
@@ -101,6 +148,13 @@ library BlockHistory {
             );
     }
 
+    /**
+     * @notice Processes a Level1 Merkle proof to compute the final root.
+     * @param level1MerkleProof_ The Merkle proof path.
+     * @param blockHash_ The hash of the block.
+     * @param blockHeight_ The height of the block.
+     * @return The computed Level1 Merkle root.
+     */
     function processLevel1Proof(
         bytes32[] calldata level1MerkleProof_,
         bytes32 blockHash_,
@@ -116,6 +170,12 @@ library BlockHistory {
             );
     }
 
+    /**
+     * @notice Calculates the history blocks Merkle tree root from the proof data.
+     * @param provedBlocksCount_ The total number of blocks included in the proof.
+     * @param proofData_ The struct containing the proof and public inputs.
+     * @return parsedBlocksTreeRoot_ The calculated Merkle tree root.
+     */
     function getHistoryBlocksTreeRoot(
         uint64 provedBlocksCount_,
         HistoryProofData calldata proofData_
@@ -134,32 +194,63 @@ library BlockHistory {
         }
     }
 
+    /**
+     * @notice Retrieves the block hash from the ZK proof's public inputs.
+     * @param proofData_ The proof data struct.
+     * @return The block hash.
+     */
     function getProofBlockHash(
         HistoryProofData calldata proofData_
     ) internal pure returns (bytes32) {
         return _getBytes32FromInputs(proofData_, PROOF_BLOCK_HASH_OFFSET);
     }
 
+    /**
+     * @notice Retrieves the block height from the ZK proof's public inputs.
+     * @param proofData_ The proof data struct.
+     * @return The block height.
+     */
     function getProofBlockHeight(
         HistoryProofData calldata proofData_
     ) internal pure returns (uint64) {
         return uint64(uint256(proofData_.publicInputs[PROOF_BLOCK_HEIGHT_OFFSET]));
     }
 
+    /**
+     * @notice Retrieves the cumulative work from the ZK proof's public inputs.
+     * @param proofData_ The proof data struct.
+     * @return The cumulative work.
+     */
     function getProofCumulativeWork(
         HistoryProofData calldata proofData_
     ) internal pure returns (uint256) {
         return uint256(proofData_.publicInputs[PROOF_CUMULATIVE_WORK_OFFSET]);
     }
 
+    /**
+     * @notice Calculates the chunk number for a given block height.
+     * @param blockHeight_ The height of the block.
+     * @return The chunk number.
+     */
     function getChunkNumber(uint256 blockHeight_) internal pure returns (uint256) {
         return blockHeight_ / CHUNK_SIZE;
     }
 
+    /**
+     * @notice Calculates the index of a block within its chunk.
+     * @param blockHeight_ The height of the block.
+     * @return The index within the chunk.
+     */
     function getIndexInChunk(uint256 blockHeight_) internal pure returns (uint256) {
         return blockHeight_ % CHUNK_SIZE;
     }
 
+    /**
+     * @notice Calculates the Merkle tree key for a chunk in the Level2 tree.
+     * @param chunkNumber_ The index of the chunk.
+     * @param totalChunksNumber_ The total number of chunks.
+     * @return The Level2 Merkle tree key.
+     */
     function getLevel2HistoryTreeKey(
         uint256 chunkNumber_,
         uint256 totalChunksNumber_
@@ -167,10 +258,21 @@ library BlockHistory {
         return _getHistoryTreeKey(chunkNumber_, Math.log2(totalChunksNumber_) + 1);
     }
 
+    /**
+     * @notice Calculates the Merkle tree key for a block in the Level1 tree.
+     * @param blockHeight_ The height of the block.
+     * @return The Level1 Merkle tree key.
+     */
     function getLevel1HistoryTreeKey(uint256 blockHeight_) internal pure returns (uint256) {
         return _getHistoryTreeKey(getIndexInChunk(blockHeight_), LEVEL1_TREE_MAX_DEPTH);
     }
 
+    /**
+     * @notice Hashes two nodes to create a new node in a Level2 Merkle tree.
+     * @param left_ The left node hash.
+     * @param right_ The right node hash.
+     * @return The resulting node hash.
+     */
     function hashLevel2HistoryTreeNode(
         bytes32 left_,
         bytes32 right_
@@ -178,10 +280,21 @@ library BlockHistory {
         return sha256(abi.encodePacked("node2", left_, right_));
     }
 
+    /**
+     * @notice Hashes a value to create a leaf in a Level2 Merkle tree.
+     * @param value_ The value to be hashed.
+     * @return The resulting leaf hash.
+     */
     function hashLevel2HistoryTreeLeaf(bytes32 value_) internal pure returns (bytes32) {
         return sha256(abi.encodePacked("leaf2", value_));
     }
 
+    /**
+     * @notice Hashes two nodes to create a new node in a Level1 Merkle tree.
+     * @param left_ The left node hash.
+     * @param right_ The right node hash.
+     * @return The resulting node hash.
+     */
     function hashLevel1HistoryTreeNode(
         bytes32 left_,
         bytes32 right_
@@ -189,10 +302,22 @@ library BlockHistory {
         return sha256(abi.encodePacked("node1", left_, right_));
     }
 
+    /**
+     * @notice Hashes a value to create a leaf in a Level1 Merkle tree.
+     * @param value_ The value to be hashed.
+     * @return The resulting leaf hash.
+     */
     function hashLevel1HistoryTreeLeaf(bytes32 value_) internal pure returns (bytes32) {
         return sha256(abi.encodePacked("leaf1", value_));
     }
 
+    /**
+     * @notice Calculates the Merkle root from the `frontier` array.
+     * @dev This function iterates through the public inputs' frontier to compute the final root.
+     * @param frontierLength_ The length of the frontier array.
+     * @param proofData_ The proof data struct.
+     * @return computedRoot_ The computed Merkle root.
+     */
     function _countRootFromFrontier(
         uint256 frontierLength_,
         HistoryProofData calldata proofData_
