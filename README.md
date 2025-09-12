@@ -62,9 +62,8 @@ In order to prove the historical block existence, you need to pass the correspon
 5. Pad the array from the previous step with zeros for its length to reach the next power of 2.
 6. Create a Level2 Merkle tree, using the array from the previous step as the tree's values.
 
-[!NOTE]
-> For the Level1 Merkle tree use `SHA256("leaf1" | blockHash)` and `SHA256("node1" | left | right)` for hashing leaves and nodes.
-> For the Level2 Merkle tree use `SHA256("leaf2" | level1MerkleRoot)` and `SHA256("node2" | left | right)` for hashing leaves and nodes.
+> [!NOTE]
+> For the Level1 Merkle tree use `SHA256("leaf1" | blockHash)` and `SHA256("node1" | left | right)` for hashing leaves and nodes. And for the Level2 Merkle tree, `SHA256("leaf2" | level1MerkleRoot)` and `SHA256("node2" | left | right)` respectively.
 
 ## Verifying History Bitcoin Blocks Inclusion
 
