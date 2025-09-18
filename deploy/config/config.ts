@@ -23,5 +23,13 @@ export async function getHistoricalConfig(): Promise<HistoricalDeployConfig> {
     return (await import("./sepolia")).historicalDeployConfig;
   }
 
+  if (hre.network.name == "base") {
+    return (await import("./base")).historicalDeployConfig;
+  }
+
+  if (hre.network.name == "ethereum") {
+    return (await import("./ethereum")).historicalDeployConfig;
+  }
+
   throw new Error(`Config for network ${hre.network.name} is not specified`);
 }

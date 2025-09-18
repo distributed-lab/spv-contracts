@@ -1,12 +1,5 @@
 import { DeployConfig, HistoricalDeployConfig } from "./types";
 
-export const deployConfig: DeployConfig = {
-  blockHeader:
-    "0x010000006397bb6abd4fc521c0d3f6071b5650389f0b4551bc40b4e6b067306900000000ace470aecda9c8818c8fe57688cd2a772b5a57954a00df0420a7dd546b6d2c576b0e7f49ffff001d33f0192f",
-  blockHeight: 2016,
-  cumulativeWork: "0x000000000000000000000000000000000000000000000000000007e107e107e1",
-};
-
 export const historicalDeployConfig: HistoricalDeployConfig = {
   blockHeader:
     "0x0000ec2480377962272e6ceefe662388c2323b08f1750e741d9900000000000000000000b8876bf9d189b5c88e4a7724032e0a1123e506fcfbbc785ac85f7546b4b63b4c12c9c468ac1102177c033abd",
