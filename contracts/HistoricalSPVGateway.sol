@@ -14,7 +14,6 @@ import {SPVGateway} from "./SPVGateway.sol";
 
 contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
     using BlockHeader for bytes;
-    using TargetsHelper for bytes32;
     using EndianConverter for bytes32;
     using BlockHistory for bytes32[];
 
@@ -22,6 +21,7 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
         keccak256("spv.gateway.historical.spv.gateway.storage");
 
     struct HistoricalSPVGatewayStorage {
+        uint32 lastHistoryEpochStartTime;
         uint256 historyBlocksCount;
         bytes32 historyBlocksTreeRoot;
     }
@@ -41,6 +41,7 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
     function __HistoricalSPVGateway_init(
         bytes calldata blockHeaderRaw_,
         uint64 blockHeight_,
+        uint32 lastHistoryEpochStartTime_,
         uint256 cumulativeWork_,
         bytes32 historyBlocksTreeRoot_,
         BlockHistory.HistoryProofData calldata proofData_
@@ -53,12 +54,14 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
             historyBlocksTreeRoot_,
             blockHash_,
             blockHeight_,
+            lastHistoryEpochStartTime_,
             cumulativeWork_,
             proofData_
         );
 
         _initialize(blockHeader_, blockHash_, blockHeight_, cumulativeWork_);
 
+        _getHistoricalSPVGatewayStorage().lastHistoryEpochStartTime = lastHistoryEpochStartTime_;
         _getHistoricalSPVGatewayStorage().historyBlocksCount = blockHeight_;
         _getHistoricalSPVGatewayStorage().historyBlocksTreeRoot = historyBlocksTreeRoot_;
     }
@@ -108,6 +111,11 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
     }
 
     /// @inheritdoc IHistoricalSPVGateway
+    function getLastHistoryEpochStartTime() public view returns (uint32) {
+        return _getHistoricalSPVGatewayStorage().lastHistoryEpochStartTime;
+    }
+
+    /// @inheritdoc IHistoricalSPVGateway
     function getHistoryBlocksCount() public view returns (uint256) {
         return _getHistoricalSPVGatewayStorage().historyBlocksCount;
     }
@@ -115,5 +123,18 @@ contract HistoricalSPVGateway is IHistoricalSPVGateway, SPVGateway {
     /// @inheritdoc IHistoricalSPVGateway
     function getHistoryBlocksTreeRoot() public view returns (bytes32) {
         return _getHistoricalSPVGatewayStorage().historyBlocksTreeRoot;
+    }
+
+    function _getEpochPassedTime(uint64 blockHeight_) internal view override returns (uint32) {
+        uint64 startEpochBlockHeight_ = blockHeight_ -
+            TargetsHelper.DIFFICULTY_ADJUSTMENT_INTERVAL;
+
+        if (startEpochBlockHeight_ > getHistoryBlocksCount()) {
+            return super._getEpochPassedTime(blockHeight_);
+        }
+
+        uint32 epochEndTime_ = _getBlockHeaderTime(getBlockHash(blockHeight_ - 1));
+
+        return epochEndTime_ - getLastHistoryEpochStartTime();
     }
 }

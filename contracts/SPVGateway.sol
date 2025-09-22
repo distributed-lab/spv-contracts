@@ -335,13 +335,10 @@ contract SPVGateway is ISPVGateway, Initializable {
         if (TargetsHelper.isTargetAdjustmentBlock(blockHeight_)) {
             $.lastEpochCumulativeWork += TargetsHelper.countEpochCumulativeWork(currentTarget_);
 
-            uint32 epochStartTime_ = _getBlockHeaderTime(
-                getBlockHash(blockHeight_ - TargetsHelper.DIFFICULTY_ADJUSTMENT_INTERVAL)
+            currentTarget_ = TargetsHelper.countNewRoundedTarget(
+                currentTarget_,
+                _getEpochPassedTime(blockHeight_)
             );
-            uint32 epochEndTime_ = _getBlockHeaderTime(getBlockHash(blockHeight_ - 1));
-            uint32 passedTime_ = epochEndTime_ - epochStartTime_;
-
-            currentTarget_ = TargetsHelper.countNewRoundedTarget(currentTarget_, passedTime_);
         }
 
         return currentTarget_;
@@ -437,6 +434,15 @@ contract SPVGateway is ISPVGateway, Initializable {
         }
 
         return _getMedianTime(blocksTime_, needsSort_);
+    }
+
+    function _getEpochPassedTime(uint64 blockHeight_) internal view virtual returns (uint32) {
+        uint32 epochStartTime_ = _getBlockHeaderTime(
+            getBlockHash(blockHeight_ - TargetsHelper.DIFFICULTY_ADJUSTMENT_INTERVAL)
+        );
+        uint32 epochEndTime_ = _getBlockHeaderTime(getBlockHash(blockHeight_ - 1));
+
+        return epochEndTime_ - epochStartTime_;
     }
 
     function _getBlockCumulativeWork(
