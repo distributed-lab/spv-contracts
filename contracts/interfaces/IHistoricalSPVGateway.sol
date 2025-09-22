@@ -65,6 +65,12 @@ interface IHistoricalSPVGateway is ISPVGateway {
     ) external view returns (bool);
 
     /**
+     * @notice Gets the last history epoch start time.
+     * @return Returns the start time of the last history epoch.
+     */
+    function getLastHistoryEpochStartTime() external view returns (uint32);
+
+    /**
      * @notice Gets the total number of historical blocks stored.
      * @return Returns the number of historical blocks.
      */
