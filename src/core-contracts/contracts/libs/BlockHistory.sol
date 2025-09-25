@@ -39,8 +39,9 @@ library BlockHistory {
     error InvalidProofBlockHash();
     error InvalidProofBlockHeight();
     error InvalidProofCumulativeWork();
-    error InvalidProof();
+    error InvalidProofEpochStartTime();
     error InvalidHistoryBlocksTreeRoot();
+    error InvalidProof();
 
     /**
      * @notice Verifies a ZK-SNARK proof for the Bitcoin history.
@@ -55,6 +56,7 @@ library BlockHistory {
         bytes32 historyBlocksTreeRoot_,
         bytes32 blockHash_,
         uint64 blockHeight_,
+        uint32 currentEpochStartTime_,
         uint256 cumulativeWork_,
         HistoryProofData calldata proofData_
     ) internal view returns (bool) {
@@ -63,6 +65,10 @@ library BlockHistory {
         require(
             cumulativeWork_ == getProofCumulativeWork(proofData_),
             InvalidProofCumulativeWork()
+        );
+        require(
+            currentEpochStartTime_ == getProofEpochStartTime(blockHeight_ + 1, proofData_),
+            InvalidProofEpochStartTime()
         );
         require(
             historyBlocksTreeRoot_ == getHistoryBlocksTreeRoot(blockHeight_ + 1, proofData_),
@@ -180,11 +186,9 @@ library BlockHistory {
         uint64 provedBlocksCount_,
         HistoryProofData calldata proofData_
     ) internal pure returns (bytes32 parsedBlocksTreeRoot_) {
-        uint256 frontierLength_ = Math.log2(provedBlocksCount_ / CHUNK_SIZE) + 1;
+        uint256 frontierLength_ = _countFrontierLength(provedBlocksCount_);
 
-        bool isPowOf2_ = provedBlocksCount_ & (provedBlocksCount_ - 1) == 0;
-
-        if (isPowOf2_) {
+        if (LibBit.isPo2(provedBlocksCount_)) {
             parsedBlocksTreeRoot_ = _getBytes32FromInputs(
                 proofData_,
                 PROOF_FRONTIER_OFFSET + 32 * (frontierLength_ - 1)
@@ -225,6 +229,26 @@ library BlockHistory {
         HistoryProofData calldata proofData_
     ) internal pure returns (uint256) {
         return uint256(proofData_.publicInputs[PROOF_CUMULATIVE_WORK_OFFSET]);
+    }
+
+    /**
+     * @notice Retrieves the last proved epoch start time from the ZK proof's public inputs.
+     * @param provedBlocksCount_ The total number of blocks included in the proof.
+     * @param proofData_ The struct containing the proof and public inputs.
+     * @return The epoch start time.
+     */
+    function getProofEpochStartTime(
+        uint64 provedBlocksCount_,
+        HistoryProofData calldata proofData_
+    ) internal pure returns (uint32) {
+        return
+            uint32(
+                uint256(
+                    proofData_.publicInputs[
+                        PROOF_FRONTIER_OFFSET + 32 * _countFrontierLength(provedBlocksCount_)
+                    ]
+                )
+            );
     }
 
     /**
@@ -322,7 +346,7 @@ library BlockHistory {
         uint256 frontierLength_,
         HistoryProofData calldata proofData_
     ) internal pure returns (bytes32 computedRoot_) {
-        for (uint256 i = 0; i < frontierLength_; ++i) {
+        for (uint256 i = 0; i < frontierLength_ - 1; ++i) {
             bytes32 currentNode_ = _getBytes32FromInputs(
                 proofData_,
                 PROOF_FRONTIER_OFFSET + 32 * i
@@ -346,6 +370,10 @@ library BlockHistory {
 
             computedRoot_ = hashLevel2HistoryTreeNode(left_, right_);
         }
+    }
+
+    function _countFrontierLength(uint64 provedBlocksCount_) private pure returns (uint256) {
+        return Math.log2(provedBlocksCount_ / CHUNK_SIZE, Math.Rounding.Ceil) + 1;
     }
 
     function _processProof(

@@ -43,6 +43,16 @@ const config: HardhatUserConfig = {
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
+    ethereum: {
+      url: `https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
+      accounts: privateKey(),
+      gasMultiplier: 1.2,
+    },
+    base: {
+      url: `https://base-mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
+      accounts: privateKey(),
+      gasMultiplier: 1.2,
+    },
   },
   solidity: {
     version: "0.8.28",

@@ -4,6 +4,7 @@ import { ethers } from "hardhat";
 import {
   buildLevel1MerkleTree,
   buildLevel2MerkleTree,
+  DIFFICULTY_ADJUSTMENT_INTERVAL,
   getBlockHeaderData,
   getBlockHeaderDataBatch,
   getBlocksDataFilePath,
@@ -68,7 +69,12 @@ describe("HistoricalSPVGateway", () => {
 
     const level2Tree = buildLevel2MerkleTree(level1Trees.map((t) => t.root));
 
-    const initBlockHeader = getBlockHeaderData(firstBlocksDataFilePath, Number(blocksCount) - 1);
+    const initBlockHeight = blocksCount - 1n;
+    const initBlockHeader = getBlockHeaderData(firstBlocksDataFilePath, Number(initBlockHeight));
+
+    const lastEpochStartHeight = initBlockHeight - (initBlockHeight % BigInt(DIFFICULTY_ADJUSTMENT_INTERVAL));
+    const lastEpochStartTime = getBlockHeaderData(firstBlocksDataFilePath, Number(lastEpochStartHeight))
+      .parsedBlockHeader.time;
 
     const proof = getHistoryProofFromFile(historyProofDir);
     const publicInputs = getHistoryProofPublicInputsFromFile(historyProofDir);
@@ -76,6 +82,7 @@ describe("HistoricalSPVGateway", () => {
     await historicalSPVGateway.__HistoricalSPVGateway_init(
       initBlockHeader.rawHeader,
       initBlockHeader.height,
+      lastEpochStartTime,
       initBlockHeader.parsedBlockHeader.chainwork,
       level2Tree.root,
       {
@@ -91,6 +98,34 @@ describe("HistoricalSPVGateway", () => {
     };
   }
 
+  async function initFrom912384Proof() {
+    const level1TreeRoots = getLevel1TreeRootsFromFile(historyProof912384DirPath);
+    const level2Tree = buildLevel2MerkleTree(level1TreeRoots);
+
+    const proof = getHistoryProofFromFile(historyProof912384DirPath);
+    const publicInputs = getHistoryProofPublicInputsFromFile(historyProof912384DirPath);
+
+    const blocksCount = 912384n;
+    const initBlockHeight = Number(blocksCount) - 1;
+    const lastEpochStartHeight = initBlockHeight - (initBlockHeight % DIFFICULTY_ADJUSTMENT_INTERVAL);
+
+    const initBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, initBlockHeight);
+    const lastEpochStartTime = getBlockHeaderData(lastBlocksDataFilePath, lastEpochStartHeight).parsedBlockHeader.time;
+
+    await historicalSPVGateway.__HistoricalSPVGateway_init(
+      initBlockHeader.rawHeader,
+      initBlockHeader.height,
+      lastEpochStartTime,
+      initBlockHeader.parsedBlockHeader.chainwork,
+      level2Tree.root,
+      {
+        verifier: await historyProofVerifier912384.getAddress(),
+        proof: proof,
+        publicInputs: publicInputs,
+      },
+    );
+  }
+
   before(async () => {
     historicalSPVGateway = await ethers.deployContract("HistoricalSPVGateway");
 
@@ -100,7 +135,7 @@ describe("HistoricalSPVGateway", () => {
 
     genesisBlockDataFilePath = getBlocksDataFilePath("genesis_block.json");
     firstBlocksDataFilePath = getBlocksDataFilePath("headers_1_10000.json");
-    lastBlocksDataFilePath = getBlocksDataFilePath("headers_911230_912429.json");
+    lastBlocksDataFilePath = getBlocksDataFilePath("headers_911230_913329.json");
 
     historyProof3072DirPath = getHistoryProofDirPath(3072n);
     historyProof4096DirPath = getHistoryProofDirPath(4096n);
@@ -120,11 +155,17 @@ describe("HistoricalSPVGateway", () => {
       const publicInputs = getHistoryProofPublicInputsFromFile(historyProof912384DirPath);
 
       const blocksCount = 912384n;
-      const initBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, Number(blocksCount) - 1);
+      const initBlockHeight = Number(blocksCount) - 1;
+      const lastEpochStartHeight = initBlockHeight - (initBlockHeight % DIFFICULTY_ADJUSTMENT_INTERVAL);
+
+      const initBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, initBlockHeight);
+      const lastEpochStartTime = getBlockHeaderData(lastBlocksDataFilePath, lastEpochStartHeight).parsedBlockHeader
+        .time;
 
       await historicalSPVGateway.__HistoricalSPVGateway_init(
         initBlockHeader.rawHeader,
         initBlockHeader.height,
+        lastEpochStartTime,
         initBlockHeader.parsedBlockHeader.chainwork,
         level2Tree.root,
         {
@@ -134,10 +175,12 @@ describe("HistoricalSPVGateway", () => {
         },
       );
 
-      const lastEpochCumulativeWork = getBlockHeaderData(lastBlocksDataFilePath, 911231).parsedBlockHeader.chainwork;
+      const lastEpochCumulativeWork = getBlockHeaderData(lastBlocksDataFilePath, lastEpochStartHeight - 1)
+        .parsedBlockHeader.chainwork;
 
       expect(await historicalSPVGateway.getMainchainHead()).to.be.eq(initBlockHeader.blockHash);
       expect(await historicalSPVGateway.getMainchainHeight()).to.be.eq(initBlockHeader.height);
+      expect(await historicalSPVGateway.getLastEpochCumulativeWork()).to.be.eq(lastEpochCumulativeWork);
       expect(await historicalSPVGateway.getLastEpochCumulativeWork()).to.be.eq(lastEpochCumulativeWork);
 
       const nextBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, Number(blocksCount));
@@ -174,6 +217,30 @@ describe("HistoricalSPVGateway", () => {
       expect(await historicalSPVGateway.getMainchainHead()).to.be.eq(initBlockHeader.blockHash);
       expect(await historicalSPVGateway.getMainchainHeight()).to.be.eq(initBlockHeader.height);
       expect(await historicalSPVGateway.getLastEpochCumulativeWork()).to.be.eq(lastEpochCumulativeWork);
+    });
+  });
+
+  describe("addBlockHeaderBatch", () => {
+    it("should correctly add blocks with 912384 blocks proof", async () => {
+      await initFrom912384Proof();
+
+      const initBlockHeight = 912383;
+
+      const batchSize = 100;
+      const batchesCount = 9;
+      const totalBlockToAdd = batchSize * batchesCount;
+      const blocksData = getBlockHeaderDataBatch(lastBlocksDataFilePath, initBlockHeight + 1, totalBlockToAdd);
+
+      for (let i = 0; i < batchesCount; i++) {
+        const currentBlocksData = blocksData.slice(batchSize * i, batchSize * (i + 1));
+        const rawHeaders = currentBlocksData.map((headerData) => headerData.rawHeader);
+
+        const tx = await historicalSPVGateway.addBlockHeaderBatch(rawHeaders);
+
+        await expect(tx)
+          .to.emit(historicalSPVGateway, "MainchainHeadUpdated")
+          .withArgs(currentBlocksData[batchSize - 1].height, currentBlocksData[batchSize - 1].blockHash);
+      }
     });
   });
 
@@ -245,26 +312,7 @@ describe("HistoricalSPVGateway", () => {
     });
 
     it("should correctly check block inclusion for 912380 height with 912384 blocks proof", async () => {
-      const level1TreeRoots = getLevel1TreeRootsFromFile(historyProof912384DirPath);
-      const level2Tree = buildLevel2MerkleTree(level1TreeRoots);
-
-      const proof = getHistoryProofFromFile(historyProof912384DirPath);
-      const publicInputs = getHistoryProofPublicInputsFromFile(historyProof912384DirPath);
-
-      const blocksCount = 912384n;
-      const initBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, Number(blocksCount) - 1);
-
-      await historicalSPVGateway.__HistoricalSPVGateway_init(
-        initBlockHeader.rawHeader,
-        initBlockHeader.height,
-        initBlockHeader.parsedBlockHeader.chainwork,
-        level2Tree.root,
-        {
-          verifier: await historyProofVerifier912384.getAddress(),
-          proof: proof,
-          publicInputs: publicInputs,
-        },
-      );
+      await initFrom912384Proof();
 
       const blockHeight = 912380;
       const blockHeader = getBlockHeaderData(lastBlocksDataFilePath, blockHeight);
@@ -397,26 +445,7 @@ describe("HistoricalSPVGateway", () => {
     });
 
     it("should correctly check tx inclusion for 912380 height with 912384 blocks proof", async () => {
-      const level1TreeRoots = getLevel1TreeRootsFromFile(historyProof912384DirPath);
-      const level2Tree = buildLevel2MerkleTree(level1TreeRoots);
-
-      const proof = getHistoryProofFromFile(historyProof912384DirPath);
-      const publicInputs = getHistoryProofPublicInputsFromFile(historyProof912384DirPath);
-
-      const blocksCount = 912384n;
-      const initBlockHeader = getBlockHeaderData(lastBlocksDataFilePath, Number(blocksCount) - 1);
-
-      await historicalSPVGateway.__HistoricalSPVGateway_init(
-        initBlockHeader.rawHeader,
-        initBlockHeader.height,
-        initBlockHeader.parsedBlockHeader.chainwork,
-        level2Tree.root,
-        {
-          verifier: await historyProofVerifier912384.getAddress(),
-          proof: proof,
-          publicInputs: publicInputs,
-        },
-      );
+      await initFrom912384Proof();
 
       const blockHeight = 912380;
       const blockHeader = getBlockHeaderData(lastBlocksDataFilePath, blockHeight);
