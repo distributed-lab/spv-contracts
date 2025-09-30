@@ -7,8 +7,10 @@ import { HexString, BytesLike } from "@openzeppelin/merkle-tree/dist/bytes";
 
 export const HISTORY_PROOF_CHUNK_SIZE = 1024n;
 
-export function getHistoryProofDirPath(provedBlocksCount: bigint): string {
-  return path.join(__dirname, "../data/history_proof", provedBlocksCount.toString());
+export function getHistoryProofDirPath(provedBlocksCount: bigint, version: bigint = 1n): string {
+  const version_suffix = version > 1n ? `_v${version.toString()}` : "";
+
+  return path.join(__dirname, `../data/history_proof${version_suffix}`, provedBlocksCount.toString());
 }
 
 export function getHistoryProofFromFile(proofDirPath: string, proofFileName: string = "proof_fields.json"): string {
