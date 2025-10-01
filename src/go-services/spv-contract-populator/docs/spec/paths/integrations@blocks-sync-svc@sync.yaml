@@ -1,0 +1,29 @@
+post:
+  summary: Sync blocks in constract
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              $ref: '#/components/schemas/BlocksSyncRequest'
+  tags:
+    - Blocks
+  operationId: syncBlocks
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BlocksSyncResponse'
+    '400':
+      description: Bad request
+    '404':
+      description: Contract not found
+    '500':
+      description: Internal error
