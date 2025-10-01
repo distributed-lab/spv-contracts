@@ -5,12 +5,16 @@ import path from "path";
 import { SimpleMerkleTree } from "@openzeppelin/merkle-tree";
 import { HexString, BytesLike } from "@openzeppelin/merkle-tree/dist/bytes";
 
-export const HISTORY_PROOF_CHUNK_SIZE = 1024n;
+export const HISTORY_PROOF_CHUNK_SIZE_V1 = 1024n;
 
-export function getHistoryProofDirPath(provedBlocksCount: bigint, version: bigint = 1n): string {
-  const version_suffix = version > 1n ? `_v${version.toString()}` : "";
+export function getHistoryProofDirPath(provedBlocksCount: bigint): string {
+  return path.join(__dirname, `../data/history_proof`, provedBlocksCount.toString());
+}
 
-  return path.join(__dirname, `../data/history_proof${version_suffix}`, provedBlocksCount.toString());
+export function getHistoryProofV2DirPath(provedBlocksCount: bigint, isDefaultAddr: boolean = true): string {
+  const fileNameSuffix = isDefaultAddr ? `_d` : `_c`;
+
+  return path.join(__dirname, `../data/history_proof_v2`, `${provedBlocksCount.toString()}${fileNameSuffix}`);
 }
 
 export function getHistoryProofFromFile(proofDirPath: string, proofFileName: string = "proof_fields.json"): string {
@@ -58,11 +62,11 @@ export function buildLevel1MerkleTree(blockHashes: string[]): SimpleMerkleTree {
   return SimpleMerkleTree.of(leaves, { nodeHash: hashLevel1TreeNode, sortLeaves: false });
 }
 
-export function getChunkNumber(blockHeight: bigint, chunkSize: bigint = HISTORY_PROOF_CHUNK_SIZE): bigint {
+export function getChunkNumber(blockHeight: bigint, chunkSize: bigint = HISTORY_PROOF_CHUNK_SIZE_V1): bigint {
   return blockHeight / chunkSize;
 }
 
-export function getIndexInChunk(blockHeight: bigint, chunkSize: bigint = HISTORY_PROOF_CHUNK_SIZE): bigint {
+export function getIndexInChunk(blockHeight: bigint, chunkSize: bigint = HISTORY_PROOF_CHUNK_SIZE_V1): bigint {
   return blockHeight % chunkSize;
 }
 

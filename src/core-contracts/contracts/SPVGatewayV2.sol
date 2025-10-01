@@ -25,7 +25,7 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
 
     struct SPVGatewayV2Storage {
         ISPVToken spvToken;
-        uint256 currentTokenRewardsAmount;
+        uint256 spvTokenRewardsAmount;
         uint64 proofsCountFromHalving;
         uint64 mainchainHeight;
         uint256 mainchainCumulativeWork;
@@ -68,6 +68,7 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
             newCumulativeWork_ > $.mainchainCumulativeWork,
             NotANewMainchain($.mainchainCumulativeWork, newCumulativeWork_)
         );
+        proofData_.verifyAddressCommitment(maxProofFrontierLength, msg.sender);
         proofData_.verifyProof(proofVerifier);
 
         uint64 newMainchainHeight_ = proofData_.getBlockHeight();
@@ -77,8 +78,8 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
         $.mainchainCumulativeWork = newCumulativeWork_;
         $.blocksTreeRoot = newBlocksTreeRoot_;
 
-        _updateTokenRewardsAmount();
         _sendTokenRewards(msg.sender);
+        _updateTokenRewardsAmount();
 
         emit MainchainUpdated(newMainchainHeight_, newCumulativeWork_, newBlocksTreeRoot_);
     }
@@ -99,8 +100,8 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
         return _getSPVGatewayV2Storage().mainchainCumulativeWork;
     }
 
-    function getCurrentSPVTokensRewardsAmount() external view returns (uint256) {
-        return _getSPVGatewayV2Storage().currentTokenRewardsAmount;
+    function getSPVTokenRewardsAmount() external view returns (uint256) {
+        return _getSPVGatewayV2Storage().spvTokenRewardsAmount;
     }
 
     function getProofsCountFromHalving() external view returns (uint256) {
@@ -110,7 +111,7 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
     function _sendTokenRewards(address to_) internal {
         SPVGatewayV2Storage storage $ = _getSPVGatewayV2Storage();
 
-        uint256 rewardsAmount_ = $.currentTokenRewardsAmount;
+        uint256 rewardsAmount_ = $.spvTokenRewardsAmount;
 
         $.spvToken.mintTo(to_, rewardsAmount_);
         $.proofsCountFromHalving++;
@@ -122,14 +123,14 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
         SPVGatewayV2Storage storage $ = _getSPVGatewayV2Storage();
 
         if ($.proofsCountFromHalving == _getHalvingPeriod()) {
-            _setSPVTokenRewardsAmount($.currentTokenRewardsAmount >> 2);
+            _setSPVTokenRewardsAmount($.spvTokenRewardsAmount / 2);
 
             delete $.proofsCountFromHalving;
         }
     }
 
     function _setSPVTokenRewardsAmount(uint256 newRewardsAmount) internal {
-        _getSPVGatewayV2Storage().currentTokenRewardsAmount = newRewardsAmount;
+        _getSPVGatewayV2Storage().spvTokenRewardsAmount = newRewardsAmount;
 
         emit SPVTokenRewardsAmountUpdated(newRewardsAmount);
     }

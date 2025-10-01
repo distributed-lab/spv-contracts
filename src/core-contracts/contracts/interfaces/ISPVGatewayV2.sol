@@ -26,7 +26,7 @@ interface ISPVGatewayV2 {
 
     function getMainchainCumulativeWork() external view returns (uint256);
 
-    function getCurrentSPVTokensRewardsAmount() external view returns (uint256);
+    function getSPVTokenRewardsAmount() external view returns (uint256);
 
     function getProofsCountFromHalving() external view returns (uint256);
 }

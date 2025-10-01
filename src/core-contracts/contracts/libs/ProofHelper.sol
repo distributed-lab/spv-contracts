@@ -29,6 +29,7 @@ library ProofHelper {
 
     error InvalidProofBlockHeight();
     error InvalidProof();
+    error InvalidAddressCommitment();
 
     function verifyProof(
         ProofData calldata proofData_,
@@ -41,6 +42,23 @@ library ProofHelper {
         require(
             IHistoryProofVerifier(verifier_).verify(proofData_.proof, proofData_.publicInputs),
             InvalidProof()
+        );
+
+        return true;
+    }
+
+    function verifyAddressCommitment(
+        ProofData calldata proofData_,
+        uint256 maxFrontierLength_,
+        address sender_
+    ) internal pure returns (bool) {
+        bytes32 blockHash_ = getBlockHash(proofData_);
+        bytes32 proofAddressComm_ = getAddressCommitment(proofData_, maxFrontierLength_);
+
+        require(
+            proofAddressComm_ == hashAddressCommitment(blockHash_, sender_) ||
+                proofAddressComm_ == hashAddressCommitment(blockHash_, address(0)),
+            InvalidAddressCommitment()
         );
 
         return true;
@@ -223,9 +241,10 @@ library ProofHelper {
         uint256 maxFrontierLength_
     ) internal pure returns (bytes32) {
         return
-            proofData_.publicInputs[
+            _getBytes32FromInputs(
+                proofData_,
                 _getFrontierEndOffset(maxFrontierLength_) + PROOF_ADDRESS_COMM_OFFSET
-            ];
+            );
     }
 
     function getChunkNumber(
@@ -266,6 +285,13 @@ library ProofHelper {
     ) internal pure returns (uint256) {
         return
             _getHistoryTreeKey(getIndexInChunk(blockHeight_, chunkSize_), Math.log2(chunkSize_));
+    }
+
+    function hashAddressCommitment(
+        bytes32 blockHash_,
+        address addr_
+    ) internal pure returns (bytes32) {
+        return sha256(abi.encodePacked("address", blockHash_, addr_));
     }
 
     /**

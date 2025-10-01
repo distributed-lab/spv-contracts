@@ -13,7 +13,7 @@ import {
   getHistoryProofFromFile,
   getHistoryProofPublicInputsFromFile,
   getLevel1TreeRootsFromFile,
-  HISTORY_PROOF_CHUNK_SIZE,
+  HISTORY_PROOF_CHUNK_SIZE_V1,
   MerkleRawProofParser,
   Reverter,
 } from "@test-helpers";
@@ -61,8 +61,8 @@ describe("HistoricalSPVGateway", () => {
     const level1Trees = [];
     for (let i = 0n; i < chunks; i++) {
       const chunkBlockHashes = allBlockHashes.slice(
-        Number(i * HISTORY_PROOF_CHUNK_SIZE),
-        Number((i + 1n) * HISTORY_PROOF_CHUNK_SIZE),
+        Number(i * HISTORY_PROOF_CHUNK_SIZE_V1),
+        Number((i + 1n) * HISTORY_PROOF_CHUNK_SIZE_V1),
       );
       level1Trees.push(buildLevel1MerkleTree(chunkBlockHashes));
     }
