@@ -8,49 +8,135 @@ import {LibBit} from "solady/src/utils/LibBit.sol";
 import {IHistoryProofVerifier} from "../interfaces/IHistoryProofVerifier.sol";
 
 library ProofHelper {
-    uint256 private constant FRONTIER_LENGTH = 25;
+    uint8 private constant MEDIAN_PAST_BLOCKS = 11;
+
+    // Offsets from the start of the public inputs
     uint256 private constant PROOF_BLOCK_HASH_OFFSET = 0;
     uint256 private constant PROOF_MEDIAN_TIMES_OFFSET = 32;
     uint256 private constant PROOF_BLOCK_HEIGHT_OFFSET = 44;
     uint256 private constant PROOF_CUMULATIVE_WORK_OFFSET = 45;
     uint256 private constant PROOF_FRONTIER_OFFSET = 46;
 
-    /**
-     * @notice A struct containing the data for a ZK-SNARK proof.
-     * @param publicInputs An array of public inputs for the proof.
-     * @param proof The serialized proof data.
-     */
+    // Offsets after frontier
+    uint256 private constant PROOF_EPOCH_START_TIME_OFFSET = 0;
+    uint256 private constant PROOF_ADDRESS_COMM_OFFSET = 1;
+
     struct ProofData {
+        uint64 blocksCount;
         bytes32[] publicInputs;
         bytes proof;
     }
 
-    error InvalidProofBlockHash();
     error InvalidProofBlockHeight();
-    error InvalidProofCumulativeWork();
-    error InvalidProofEpochStartTime();
-    error InvalidHistoryBlocksTreeRoot();
+    error InvalidProof();
+
+    function verifyProof(
+        ProofData calldata proofData_,
+        address verifier_
+    ) internal view returns (bool) {
+        require(
+            proofData_.blocksCount == getBlockHeight(proofData_) + 1,
+            InvalidProofBlockHeight()
+        );
+        require(
+            IHistoryProofVerifier(verifier_).verify(proofData_.proof, proofData_.publicInputs),
+            InvalidProof()
+        );
+
+        return true;
+    }
 
     /**
-     * @notice Calculates the history blocks Merkle tree root from the proof data.
-     * @param provedBlocksCount_ The total number of blocks included in the proof.
-     * @param proofData_ The struct containing the proof and public inputs.
-     * @return parsedBlocksTreeRoot_ The calculated Merkle tree root.
+     * @notice Verifies a Merkle proof against a Level2 Merkle tree.
+     * @param level2MerkleProof_ The Merkle proof for the Level2 tree.
+     * @param level2BlocksTreeRoot_ The expected root of the Level2 tree.
+     * @param level1Root_ The root of the Level1 Merkle tree to be verified.
+     * @param totalChunksNumber_ The total number of chunks.
+     * @param chunkNumber_ The index of the chunk to be verified.
+     * @return A boolean indicating whether the proof is valid.
      */
-    function getBlocksTreeRoot(
-        uint64 provedBlocksCount_,
-        ProofData calldata proofData_
-    ) internal pure returns (bytes32 parsedBlocksTreeRoot_) {
-        // uint256 frontierLength_ = _countFrontierLength(provedBlocksCount_, 1);
+    function verifyLevel2Proof(
+        bytes32[] calldata level2MerkleProof_,
+        bytes32 level2BlocksTreeRoot_,
+        bytes32 level1Root_,
+        uint256 totalChunksNumber_,
+        uint256 chunkNumber_
+    ) internal pure returns (bool) {
+        bytes32 processedLevel2Proof = processLevel2Proof(
+            level2MerkleProof_,
+            level1Root_,
+            totalChunksNumber_,
+            chunkNumber_
+        );
 
-        if (LibBit.isPo2(provedBlocksCount_)) {
-            parsedBlocksTreeRoot_ = _getBytes32FromInputs(
-                proofData_,
-                PROOF_FRONTIER_OFFSET + 32 * (FRONTIER_LENGTH - 1)
+        return processedLevel2Proof == level2BlocksTreeRoot_;
+    }
+
+    /**
+     * @notice Verifies a Merkle proof against a Level1 Merkle tree.
+     * @param level1MerkleProof_ The Merkle proof for the Level1 tree.
+     * @param level1BlocksTreeRoot_ The expected root of the Level1 tree.
+     * @param blockHash_ The hash of the block to be verified.
+     * @param blockHeight_ The height of the block.
+     * @return A boolean indicating whether the proof is valid.
+     */
+    function verifyLevel1Proof(
+        bytes32[] calldata level1MerkleProof_,
+        bytes32 level1BlocksTreeRoot_,
+        bytes32 blockHash_,
+        uint256 blockHeight_,
+        uint256 chunkSize_
+    ) internal pure returns (bool) {
+        return
+            processLevel1Proof(level1MerkleProof_, blockHash_, blockHeight_, chunkSize_) ==
+            level1BlocksTreeRoot_;
+    }
+
+    /**
+     * @notice Processes a Level2 Merkle proof to compute the final root.
+     * @param level2MerkleProof_ The Merkle proof path.
+     * @param level1Root_ The root of the Level1 Merkle tree.
+     * @param totalChunksNumber_ The total number of chunks.
+     * @param chunkNumber_ The index of the chunk.
+     * @return The computed Level2 Merkle root.
+     */
+    function processLevel2Proof(
+        bytes32[] calldata level2MerkleProof_,
+        bytes32 level1Root_,
+        uint256 totalChunksNumber_,
+        uint256 chunkNumber_
+    ) internal pure returns (bytes32) {
+        return
+            _processProof(
+                level2MerkleProof_,
+                level1Root_,
+                getLevel2HistoryTreeKey(chunkNumber_, totalChunksNumber_),
+                hashLevel2HistoryTreeLeaf,
+                hashLevel2HistoryTreeNode
             );
-        } else {
-            parsedBlocksTreeRoot_ = _countRootFromFrontier(FRONTIER_LENGTH, proofData_);
-        }
+    }
+
+    /**
+     * @notice Processes a Level1 Merkle proof to compute the final root.
+     * @param level1MerkleProof_ The Merkle proof path.
+     * @param blockHash_ The hash of the block.
+     * @param blockHeight_ The height of the block.
+     * @return The computed Level1 Merkle root.
+     */
+    function processLevel1Proof(
+        bytes32[] calldata level1MerkleProof_,
+        bytes32 blockHash_,
+        uint256 blockHeight_,
+        uint256 chunkSize_
+    ) internal pure returns (bytes32) {
+        return
+            _processProof(
+                level1MerkleProof_,
+                blockHash_,
+                getLevel1HistoryTreeKey(blockHeight_, chunkSize_),
+                hashLevel1HistoryTreeLeaf,
+                hashLevel1HistoryTreeNode
+            );
     }
 
     /**
@@ -58,8 +144,20 @@ library ProofHelper {
      * @param proofData_ The proof data struct.
      * @return The block hash.
      */
-    function getProofBlockHash(ProofData calldata proofData_) internal pure returns (bytes32) {
+    function getBlockHash(ProofData calldata proofData_) internal pure returns (bytes32) {
         return _getBytes32FromInputs(proofData_, PROOF_BLOCK_HASH_OFFSET);
+    }
+
+    function getMedianTimes(
+        ProofData calldata proofData_
+    ) internal pure returns (uint32[] memory medianTimeArr_) {
+        medianTimeArr_ = new uint32[](MEDIAN_PAST_BLOCKS);
+
+        for (uint256 i = 0; i < MEDIAN_PAST_BLOCKS; ++i) {
+            medianTimeArr_[i] = uint32(
+                uint256(proofData_.publicInputs[PROOF_MEDIAN_TIMES_OFFSET + i])
+            );
+        }
     }
 
     /**
@@ -67,7 +165,7 @@ library ProofHelper {
      * @param proofData_ The proof data struct.
      * @return The block height.
      */
-    function getProofBlockHeight(ProofData calldata proofData_) internal pure returns (uint64) {
+    function getBlockHeight(ProofData calldata proofData_) internal pure returns (uint64) {
         return uint64(uint256(proofData_.publicInputs[PROOF_BLOCK_HEIGHT_OFFSET]));
     }
 
@@ -76,24 +174,58 @@ library ProofHelper {
      * @param proofData_ The proof data struct.
      * @return The cumulative work.
      */
-    function getProofCumulativeWork(
-        ProofData calldata proofData_
-    ) internal pure returns (uint256) {
+    function getCumulativeWork(ProofData calldata proofData_) internal pure returns (uint256) {
         return uint256(proofData_.publicInputs[PROOF_CUMULATIVE_WORK_OFFSET]);
     }
 
     /**
+     * @notice Calculates the blocks Merkle tree root from the proof data.
+     * @param proofData_ The struct containing the proof and public inputs.
+     * @return parsedBlocksTreeRoot_ The calculated Merkle tree root.
+     */
+    function getBlocksTreeRoot(
+        ProofData calldata proofData_,
+        uint256 chunkSize_
+    ) internal pure returns (bytes32 parsedBlocksTreeRoot_) {
+        uint256 frontierLength_ = _countFrontierLength(proofData_, chunkSize_);
+
+        if (LibBit.isPo2(proofData_.blocksCount)) {
+            parsedBlocksTreeRoot_ = _getBytes32FromInputs(
+                proofData_,
+                PROOF_FRONTIER_OFFSET + 32 * (frontierLength_ - 1)
+            );
+        } else {
+            parsedBlocksTreeRoot_ = _countRootFromFrontier(frontierLength_, proofData_);
+        }
+    }
+
+    /**
      * @notice Retrieves the last proved epoch start time from the ZK proof's public inputs.
-     * @param provedBlocksCount_ The total number of blocks included in the proof.
      * @param proofData_ The struct containing the proof and public inputs.
      * @return The epoch start time.
      */
-    function getProofEpochStartTime(
-        uint64 provedBlocksCount_,
-        ProofData calldata proofData_
+    function getEpochStartTime(
+        ProofData calldata proofData_,
+        uint256 maxFrontierLength_
     ) internal pure returns (uint32) {
         return
-            uint32(uint256(proofData_.publicInputs[PROOF_FRONTIER_OFFSET + 32 * FRONTIER_LENGTH]));
+            uint32(
+                uint256(
+                    proofData_.publicInputs[
+                        _getFrontierEndOffset(maxFrontierLength_) + PROOF_EPOCH_START_TIME_OFFSET
+                    ]
+                )
+            );
+    }
+
+    function getAddressCommitment(
+        ProofData calldata proofData_,
+        uint256 maxFrontierLength_
+    ) internal pure returns (bytes32) {
+        return
+            proofData_.publicInputs[
+                _getFrontierEndOffset(maxFrontierLength_) + PROOF_ADDRESS_COMM_OFFSET
+            ];
     }
 
     function getChunkNumber(
@@ -108,6 +240,32 @@ library ProofHelper {
         uint256 chunkSize_
     ) internal pure returns (uint256) {
         return blockHeight_ % chunkSize_;
+    }
+
+    /**
+     * @notice Calculates the Merkle tree key for a chunk in the Level2 tree.
+     * @param chunkNumber_ The index of the chunk.
+     * @param totalChunksNumber_ The total number of chunks.
+     * @return The Level2 Merkle tree key.
+     */
+    function getLevel2HistoryTreeKey(
+        uint256 chunkNumber_,
+        uint256 totalChunksNumber_
+    ) internal pure returns (uint256) {
+        return _getHistoryTreeKey(chunkNumber_, Math.log2(totalChunksNumber_) + 1);
+    }
+
+    /**
+     * @notice Calculates the Merkle tree key for a block in the Level1 tree.
+     * @param blockHeight_ The height of the block.
+     * @return The Level1 Merkle tree key.
+     */
+    function getLevel1HistoryTreeKey(
+        uint256 blockHeight_,
+        uint256 chunkSize_
+    ) internal pure returns (uint256) {
+        return
+            _getHistoryTreeKey(getIndexInChunk(blockHeight_, chunkSize_), Math.log2(chunkSize_));
     }
 
     /**
@@ -157,7 +315,6 @@ library ProofHelper {
     /**
      * @notice Calculates the Merkle root from the `frontier` array.
      * @dev This function iterates through the public inputs' frontier to compute the final root.
-     * @param frontierLength_ The length of the frontier array.
      * @param proofData_ The proof data struct.
      * @return computedRoot_ The computed Merkle root.
      */
@@ -191,9 +348,16 @@ library ProofHelper {
         }
     }
 
-    // function _countFrontierLength(uint64 provedBlocksCount_, uint256 chunkSize_) private pure returns (uint256) {
-    //     return Math.log2(provedBlocksCount_ / chunkSize_, Math.Rounding.Ceil) + 1;
-    // }
+    function _getFrontierEndOffset(uint256 maxFrontierLength_) private pure returns (uint256) {
+        return PROOF_FRONTIER_OFFSET + 32 * maxFrontierLength_;
+    }
+
+    function _countFrontierLength(
+        ProofData calldata proofData_,
+        uint256 chunkSize_
+    ) private pure returns (uint256) {
+        return Math.log2(proofData_.blocksCount / chunkSize_, Math.Rounding.Ceil) + 1;
+    }
 
     function _processProof(
         bytes32[] calldata merkleProof_,
