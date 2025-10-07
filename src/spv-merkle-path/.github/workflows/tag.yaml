@@ -1,0 +1,46 @@
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  converge:
+    name: Build To Github Backend Stage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Buildah
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install buildah
+
+      - name: Build and Push Image
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/backend:${{ github.ref_name }}
+          CACHE_REPO: ghcr.io/${{ github.repository }}/cache
+        run: |
+          buildah bud \
+            --format docker \
+            -f Dockerfile \
+            --layers \
+            --cache-from $CACHE_REPO \
+            --cache-to $CACHE_REPO \
+            -t $IMAGE \
+            .
+
+      - name: Push Image
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/backend:${{ github.ref_name }}
+        run: buildah push $IMAGE
