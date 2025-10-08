@@ -13,17 +13,12 @@ import {
   getHistoryProofFromFile,
   getHistoryProofPublicInputsFromFile,
   getLevel1TreeRootsFromFile,
-  HISTORY_PROOF_CHUNK_SIZE_V1,
+  HISTORY_PROOF_CHUNK_SIZE,
   MerkleRawProofParser,
   Reverter,
 } from "@test-helpers";
 
-import {
-  HistoricalSPVGateway,
-  HistoryProofVerifier912384,
-  HistoryProofVerifier3072,
-  HistoryProofVerifier4096,
-} from "@ethers-v6";
+import { HistoricalSPVGateway, HistoryProofVerifier912384, HistoryProofVerifier3072 } from "@ethers-v6";
 import { SimpleMerkleTree } from "@openzeppelin/merkle-tree";
 
 describe("HistoricalSPVGateway", () => {
@@ -33,7 +28,6 @@ describe("HistoricalSPVGateway", () => {
 
   let historyProofVerifier912384: HistoryProofVerifier912384;
   let historyProofVerifier3072: HistoryProofVerifier3072;
-  let historyProofVerifier4096: HistoryProofVerifier4096;
 
   let genesisBlockDataFilePath: string;
   let firstBlocksDataFilePath: string;
@@ -61,8 +55,8 @@ describe("HistoricalSPVGateway", () => {
     const level1Trees = [];
     for (let i = 0n; i < chunks; i++) {
       const chunkBlockHashes = allBlockHashes.slice(
-        Number(i * HISTORY_PROOF_CHUNK_SIZE_V1),
-        Number((i + 1n) * HISTORY_PROOF_CHUNK_SIZE_V1),
+        Number(i * HISTORY_PROOF_CHUNK_SIZE),
+        Number((i + 1n) * HISTORY_PROOF_CHUNK_SIZE),
       );
       level1Trees.push(buildLevel1MerkleTree(chunkBlockHashes));
     }
@@ -131,7 +125,6 @@ describe("HistoricalSPVGateway", () => {
 
     historyProofVerifier912384 = await ethers.deployContract("HistoryProofVerifier912384");
     historyProofVerifier3072 = await ethers.deployContract("HistoryProofVerifier3072");
-    historyProofVerifier4096 = await ethers.deployContract("HistoryProofVerifier4096");
 
     genesisBlockDataFilePath = getBlocksDataFilePath("genesis_block.json");
     firstBlocksDataFilePath = getBlocksDataFilePath("headers_1_10000.json");

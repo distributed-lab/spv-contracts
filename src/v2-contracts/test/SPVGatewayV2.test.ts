@@ -7,7 +7,7 @@ import {
   getBlockHeaderData,
   getBlockHeaderDataBatch,
   getBlocksDataFilePath,
-  getHistoryProofV2DirPath,
+  getHistoryProofDirPath,
   getHistoryProofFromFile,
   getHistoryProofPublicInputsFromFile,
   Reverter,
@@ -55,10 +55,10 @@ describe("SPVGatewayV2", () => {
     await spvGatewayV2.__SPVGatewayV2_init(spvToken);
 
     genesisBlockDataFilePath = getBlocksDataFilePath("genesis_block.json");
-    firstBlocksDataFilePath = getBlocksDataFilePath("headers_1_10000.json");
+    firstBlocksDataFilePath = getBlocksDataFilePath("headers_1_30.json");
 
-    historyProof2CDirPath = getHistoryProofV2DirPath(2n, false);
-    historyProof4DDirPath = getHistoryProofV2DirPath(4n);
+    historyProof2CDirPath = getHistoryProofDirPath(2n, false);
+    historyProof4DDirPath = getHistoryProofDirPath(4n);
 
     await reverter.snapshot();
   });
@@ -163,7 +163,7 @@ describe("SPVGatewayV2", () => {
 
       for (let i = 0; i < proofsToUpdate; ++i) {
         const provedBlocksCount = 2n + BigInt(i);
-        const currentProofDir = getHistoryProofV2DirPath(provedBlocksCount, addrCommArr[i]);
+        const currentProofDir = getHistoryProofDirPath(provedBlocksCount, addrCommArr[i]);
 
         const proof = getHistoryProofFromFile(currentProofDir);
         const publicInputs = getHistoryProofPublicInputsFromFile(currentProofDir);

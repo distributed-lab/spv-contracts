@@ -1,5 +1,5 @@
 {
-  "name": "@distributedlab/spv-gateway",
+  "name": "@distributedlab/v1-spv-gateway",
   "version": "0.1.0",
   "license": "MIT",
   "author": "Distributed Lab",
