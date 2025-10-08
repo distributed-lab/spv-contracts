@@ -27,10 +27,25 @@ library ProofHelper {
         bytes proof;
     }
 
+    /**
+     * @notice Error thrown when the proof's block height does not match the expected value.
+     */
     error InvalidProofBlockHeight();
+    /**
+     * @notice Error thrown when the proof verification fails.
+     */
     error InvalidProof();
+    /**
+     * @notice Error thrown when the address commitment in the proof is invalid.
+     */
     error InvalidAddressCommitment();
 
+    /**
+     * @notice Verifies the ZK proof using the provided verifier contract.
+     * @param proofData_ The proof data containing blocks count, public inputs, and proof bytes.
+     * @param verifier_ The address of the verifier contract.
+     * @return True if the proof is valid, otherwise reverts with an error.
+     */
     function verifyProof(
         ProofData calldata proofData_,
         address verifier_
@@ -47,6 +62,13 @@ library ProofHelper {
         return true;
     }
 
+    /**
+     * @notice Verifies the address commitment in the proof data matches the expected sender or zero address.
+     * @param proofData_ The proof data containing public inputs and proof bytes.
+     * @param maxFrontierLength_ The maximum length of the frontier in the proof.
+     * @param sender_ The address expected to be committed in the proof.
+     * @return True if the address commitment is valid, otherwise reverts with an error.
+     */
     function verifyAddressCommitment(
         ProofData calldata proofData_,
         uint256 maxFrontierLength_,
@@ -362,7 +384,7 @@ library ProofHelper {
             bytes32 left_;
             bytes32 right_;
 
-            if (i == 0) {
+            if (computedRoot_ == 0) {
                 (left_, right_) = (currentNode_, _getZeroNodeHash(i));
             } else if (currentNode_ == 0) {
                 (left_, right_) = (computedRoot_, _getZeroNodeHash(i));

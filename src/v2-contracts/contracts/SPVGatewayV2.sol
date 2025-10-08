@@ -4,6 +4,9 @@ pragma solidity ^0.8.28;
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import {ADeployerGuard} from "@solarity/solidity-lib/utils/ADeployerGuard.sol";
+import {BlockHeader} from "@solarity/solidity-lib/libs/bitcoin/BlockHeader.sol";
+import {TxMerkleProof} from "@solarity/solidity-lib/libs/bitcoin/TxMerkleProof.sol";
+import {EndianConverter} from "@solarity/solidity-lib/libs/utils/EndianConverter.sol";
 
 import {ISPVGatewayV2} from "./interfaces/ISPVGatewayV2.sol";
 import {ISPVToken} from "./interfaces/tokens/ISPVToken.sol";
@@ -11,7 +14,9 @@ import {ISPVToken} from "./interfaces/tokens/ISPVToken.sol";
 import {ProofHelper} from "./libs/ProofHelper.sol";
 
 contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
-    using ProofHelper for ProofHelper.ProofData;
+    using BlockHeader for bytes;
+    using EndianConverter for bytes32;
+    using ProofHelper for *;
 
     bytes32 public constant SPV_GATEWAY_V2_STORAGE_SLOT =
         keccak256("spv.gateway.spv.gateway.v2.storage");
@@ -59,6 +64,7 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
         _setSPVTokenRewardsAmount(INITIAL_SPV_TOKEN_REWARDS_AMOUNT * (10 ** spvToken.decimals()));
     }
 
+    /// @inheritdoc ISPVGatewayV2
     function updateMainchain(ProofHelper.ProofData calldata proofData_) external {
         SPVGatewayV2Storage storage $ = _getSPVGatewayV2Storage();
 
@@ -84,28 +90,81 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
         emit MainchainUpdated(newMainchainHeight_, newCumulativeWork_, newBlocksTreeRoot_);
     }
 
+    /// @inheritdoc ISPVGatewayV2
     function getSPVToken() external view returns (address) {
         return address(_getSPVGatewayV2Storage().spvToken);
     }
 
+    /// @inheritdoc ISPVGatewayV2
     function getBlocksTreeRoot() external view returns (bytes32) {
         return _getSPVGatewayV2Storage().blocksTreeRoot;
     }
 
+    /// @inheritdoc ISPVGatewayV2
     function getMainchainHeight() external view returns (uint64) {
         return _getSPVGatewayV2Storage().mainchainHeight;
     }
 
+    /// @inheritdoc ISPVGatewayV2
     function getMainchainCumulativeWork() external view returns (uint256) {
         return _getSPVGatewayV2Storage().mainchainCumulativeWork;
     }
 
+    /// @inheritdoc ISPVGatewayV2
     function getSPVTokenRewardsAmount() external view returns (uint256) {
         return _getSPVGatewayV2Storage().spvTokenRewardsAmount;
     }
 
+    /// @inheritdoc ISPVGatewayV2
     function getProofsCountFromHalving() external view returns (uint256) {
         return _getSPVGatewayV2Storage().proofsCountFromHalving;
+    }
+
+    /// @inheritdoc ISPVGatewayV2
+    function checkTxInclusion(
+        bytes32[] calldata merkleProof_,
+        bytes calldata blockHeaderRaw_,
+        bytes32 txId_,
+        uint256 txIndex_,
+        HistoryBlockInclusionProofData calldata blockInclusionProofData_
+    ) external view returns (bool) {
+        (BlockHeader.HeaderData memory blockHeader_, bytes32 blockHash_) = blockHeaderRaw_
+            .parseBlockHeader(true);
+
+        require(
+            blockHash_ == blockInclusionProofData_.blockHash,
+            DifferentBlockHashes(blockHash_, blockInclusionProofData_.blockHash)
+        );
+
+        require(
+            checkBlockInclusion(blockInclusionProofData_),
+            BlockHashNotInTheMainchain(blockHash_)
+        );
+
+        bytes32 leRoot_ = blockHeader_.merkleRoot.bytes32BEtoLE();
+
+        return TxMerkleProof.verify(merkleProof_, leRoot_, txId_, txIndex_);
+    }
+
+    /// @inheritdoc ISPVGatewayV2
+    function checkBlockInclusion(
+        HistoryBlockInclusionProofData calldata inclusionProofData_
+    ) public view returns (bool) {
+        SPVGatewayV2Storage storage $ = _getSPVGatewayV2Storage();
+
+        bytes32 level1Root_ = inclusionProofData_.level1MerkleProof.processLevel1Proof(
+            inclusionProofData_.blockHash,
+            inclusionProofData_.blockHeight,
+            chunkSize
+        );
+
+        return
+            inclusionProofData_.level2MerkleProof.verifyLevel2Proof(
+                $.blocksTreeRoot,
+                level1Root_,
+                ProofHelper.getChunkNumber($.mainchainHeight, chunkSize),
+                ProofHelper.getChunkNumber(inclusionProofData_.blockHeight, chunkSize)
+            );
     }
 
     function _sendTokenRewards(address to_) internal {
