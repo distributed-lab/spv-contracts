@@ -1,0 +1,4 @@
+current_tx_data = "{currentTxData}"
+prev_tx_data = "{prevTxData}"
+script_sig = "{scriptSig}"
+input_to_sign = "{inputToSign}"

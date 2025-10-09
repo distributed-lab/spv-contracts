@@ -1,0 +1,10 @@
+[package]
+name = "p2sh_p2wsh"
+type = "bin"
+
+[dependencies]
+bvm = { path = "../../crates/bvm" }
+sign = { path = "../../crates/sign" }
+utils = { path = "../../crates/utils" }
+script = { path = "../../crates/script" }
+

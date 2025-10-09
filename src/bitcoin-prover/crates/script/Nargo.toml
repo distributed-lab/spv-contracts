@@ -1,0 +1,11 @@
+[package]
+name = "script"
+type = "lib"
+authors = ["Distributed Lab"]
+
+[dependencies]
+sha256 = { tag = "v0.1.0", git = "https://github.com/noir-lang/sha256" }
+ripemd160 = { tag = "v0.0.3", git = "https://github.com/distributed-lab/noir-ripemd160" }
+utils = { path = "../utils" }
+bvm = { path = "../bvm" }
+sign = { path = "../sign" }

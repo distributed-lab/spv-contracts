@@ -1,0 +1,4 @@
+current_tx_data = "{currentTxData}"
+prev_tx_data = "{prevTxData}"
+utxos_data = {utxosData}
+input_to_sign = "{inputToSign}"

@@ -1,0 +1,20 @@
+[workspace]
+name = "wrapless-prover"
+members = [
+    "crates/blocks",
+    "crates/script",
+    "crates/utils",
+    "crates/crypto",
+    "crates/bvm",
+    "crates/sign",
+    "app/p2sh",
+    "app/p2tr",
+    "app/p2tr_script",
+    "app/p2ms",
+    "app/p2pkh",
+    "app/p2pk",
+    "app/p2sh_p2wpkh",
+    "app/p2sh_p2wsh",
+    "app/blocks_recursive/recursive_base",
+    "app/blocks_recursive/recursive",
+]

@@ -1,0 +1,72 @@
+{
+    "txid": "12e753ef5cc30925a6eee2c457aa7f53022443ca013ea81882a6b59b69e342a6",
+    "size": 486,
+    "version": 1,
+    "locktime": 0,
+    "fee": 0,
+    "inputs": [
+      {
+        "coinbase": false,
+        "txid": "7bdd7de22535770be3e14a4e527aed4431ab8adb3115657ca47df6fb1e89d70d",
+        "output": 0,
+        "sigscript": "48304502206f6a68710a51f77e5a1fa4d1037a23a76723724a51fd54710949e0189ee02dfa022100dad3454ade12fe84f3818e14c41ec2e02bbb154dd3136a094cdf86f67ebbe0b601",
+        "sequence": 4294967295,
+        "pkscript": "4104889fcdfd7c5430d13f1eb5f508e2e87f38d2406fad8425a824e032ccb371ef62465331e1a6334d7c3770a2ad2a958e740130343399d01dbd87426db850f9faf9ac",
+        "value": 5003000000,
+        "address": "1Em2X2E52kuxJqCxmivT5FatsaZw4woUkm",
+        "witness": []
+      },
+      {
+        "coinbase": false,
+        "txid": "6f7cf9580f1c2dfb3c4d5d043cdbb128c640e3f20161245aa7372e9666168516",
+        "output": 0,
+        "sigscript": "48304502203f004eeed0cef2715643e2f25a27a28f3c578e94c7f0f6a4df104e7d163f7f8f022100b8b248c1cfd8f77a0365107a9511d759b7544d979dd152a955c867afac0ef7860141044d05240cfbd8a2786eda9dadd520c1609b8593ff8641018d57703d02ba687cf2f187f0cee2221c3afb1b5ff7888caced2423916b61444666ca1216f26181398c",
+        "sequence": 4294967295,
+        "pkscript": "76a91412ab8dc588ca9d5787dde7eb29569da63c3a238c88ac",
+        "value": 10000000000,
+        "address": "12higDjoCCNXSA95xZMWUdPvXNmkAduhWv",
+        "witness": []
+      },
+      {
+        "coinbase": false,
+        "txid": "9cc7dd60edd5d0f80234f13f5dbfc76f74cb831fd57228d9a0d91fe9385ddaff",
+        "output": 0,
+        "sigscript": "483045022100b6fd43f2fa16e092678283f64d2e08fb2070b4af2b3ddfb9ca3c5e238288acaa02200c5a28e0a4fc1a540f6eeb30ccc4788050eae46964fe33ccb4500c3de1320c2501",
+        "sequence": 4294967295,
+        "pkscript": "4104f51707ee3fd26b490bb83582f22c73b97c364b9c51a80c49e6a9bc491538f5206fc0ca8fc4c97dfd0a8b2ae9b82d1ef94599ce51eaf9ba82ce4a69d9ac9dc225ac",
+        "value": 5000000000,
+        "address": "13KXfsogUa4PoryL5tfwWJcw7zytugwdwR",
+        "witness": []
+      }
+    ],
+    "outputs": [
+      {
+        "address": "1378reF34e3cYzhMWFTxTnzaeksruhgfjf",
+        "pkscript": "76a91417194e1bd175fb5b1b2a1f9d221f6f5c29e1928388ac",
+        "value": 3000000,
+        "spent": true,
+        "spender": {
+          "txid": "92c21b5ad555e7314214a1aa25d916680f2c99682ef936d8d4a6a59720245f4d",
+          "input": 4
+        }
+      },
+      {
+        "address": "1AGxTP59HUCcevqrGoNKS4Z1Cd1tzWqXj5",
+        "pkscript": "76a91465bda9b05f7e9a8f96a7f4ba0996a877708ef90888ac",
+        "value": 20000000000,
+        "spent": true,
+        "spender": {
+          "txid": "a8efe15324a43e5e031204d57b4db425e6f0bbb4d640b4c2edaf81061ba0da0c",
+          "input": 0
+        }
+      }
+    ],
+    "block": {
+      "height": 128835,
+      "position": 1
+    },
+    "deleted": false,
+    "time": 1307302318,
+    "rbf": false,
+    "weight": 1944
+  }
