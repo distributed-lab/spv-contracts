@@ -19,7 +19,7 @@ The typical workflow is as follows:
 ## Usage
 
 > [!IMPORTANT]
-> All commands must be run from the root directory of the repository.
+> All commands must be run from the `/src/bitcoin-prover` directory of the repository.
 
 After running any script, you need to install the Python dependencies.
 To do that, create a virtual environment and install the dependencies from `requirements.txt` using the following commands:
