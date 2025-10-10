@@ -110,12 +110,21 @@ pub global MERKLE_ROOT_ARRAY_LEN: u32 = {MERKLE_ROOT_STATE_LEN};
         blocks = loaded.blocks
     else:
         puller = BlockHeaderPuller(config["rpc"])
+        end = False
         for i in range(loaded.amount, config["blocks"]["count"], 2000):
             hex_headers = puller.pull_block_headers(
                 i, min(2000, config["blocks"]["count"] - i))
+            
+            if any(h is None for h in hex_headers):
+                end = True
+
+            hex_headers = [h for h in hex_headers if h is not None]
+
             blocks = [Block(header) for header in hex_headers]
             loaded.add_blocks(blocks)
-        
+            if end:
+                break
+
         blocks = loaded.blocks
 
     if not checkpoint:
