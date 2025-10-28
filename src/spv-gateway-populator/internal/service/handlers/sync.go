@@ -139,7 +139,7 @@ func syncContractChain(contract *spvcontract.HistoricalSPVGateway, auth *bind.Tr
 			return
 		}
 
-		// If it more than 0.01 Gwei
+		// If it more than 0.025 Gwei
 		if baseFee.Cmp(big.NewInt(25000000)) == 1 {
 			log.Printf("Gas price is too high, will retry later...\n")
 			return
