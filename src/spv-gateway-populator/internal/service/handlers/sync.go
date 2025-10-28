@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,10 +16,13 @@ import (
 
 	"github.com/distributed-lab/spv-contract-populator/internal/config"
 	"github.com/distributed-lab/spv-contract-populator/internal/spvcontract"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	ethlog "github.com/ethereum/go-ethereum/log"
 	"gitlab.com/distributed_lab/kit/kv"
 )
 
@@ -93,14 +98,12 @@ func Sync() {
 	ticker := time.NewTicker(time.Duration(interval) * time.Minute)
 	defer ticker.Stop()
 
-	syncContractChain(contract, auth, client, batchSize, rpc)
-	log.Printf("Wait till next sync after %d minutes\n", interval)
-
 	for {
+		syncContractChain(contract, auth, client, batchSize, rpc)
+		log.Printf("Wait till next sync after %d minutes\n", interval)
+
 		select {
 		case <-ticker.C:
-			syncContractChain(contract, auth, client, batchSize, rpc)
-			log.Printf("Wait till next sync after %d minutes\n", interval)
 		}
 	}
 }
@@ -124,14 +127,34 @@ func syncContractChain(contract *spvcontract.HistoricalSPVGateway, auth *bind.Tr
 	// add new blocks
 	batchesAmount := len(blocksToAdd) / batchSize
 	for i := 0; i < batchesAmount; i++ {
+		auth.GasTipCap, err = client.SuggestGasTipCap(context.Background())
+		if err != nil {
+			log.Fatalf("Error suggesting gas tip cap: %v", err)
+			return
+		}
+
+		baseFee, err := client.SuggestGasPrice(context.Background())
+		if err != nil {
+			log.Fatalf("Error suggesting gas price: %v", err)
+			return
+		}
+
+		// If it more than 0.01 Gwei
+		if baseFee.Cmp(big.NewInt(10000000)) == 1 {
+			log.Printf("Gas price is too high, will retry later...\n")
+			return
+		}
+
+		auth.GasFeeCap = new(big.Int).Add(baseFee, new(big.Int).Mul(auth.GasTipCap, big.NewInt(2)))
+
 		tx, err := contract.AddBlockHeaderBatch(auth, blocksToAdd[(i*batchSize):((i+1)*batchSize)])
 		if err != nil {
 			log.Fatalf("Error adding batch of blocks: %v", err)
 			return
 		}
 
-		log.Printf("Waiting mining...\n")
-		receipt, err := bind.WaitMined(context.Background(), client, tx)
+		log.Printf("Waiting mining... TX: %s\n", tx.Hash())
+		receipt, err := waitMined(context.Background(), client, tx)
 		if err != nil {
 			log.Fatalf("Error mining block: %v", err)
 			return
@@ -147,14 +170,34 @@ func syncContractChain(contract *spvcontract.HistoricalSPVGateway, auth *bind.Tr
 
 	// Add one batch that less than batchSize
 	if len(blocksToAdd)%batchSize != 0 {
+		auth.GasTipCap, err = client.SuggestGasTipCap(context.Background())
+		if err != nil {
+			log.Fatalf("Error suggesting gas tip cap: %v", err)
+			return
+		}
+
+		baseFee, err := client.SuggestGasPrice(context.Background())
+		if err != nil {
+			log.Fatalf("Error suggesting gas price: %v", err)
+			return
+		}
+
+		// If it more than 0.025 Gwei
+		if baseFee.Cmp(big.NewInt(25000000)) == 1 {
+			log.Printf("Gas price is too high, will retry later...\n")
+			return
+		}
+
+		auth.GasFeeCap = new(big.Int).Add(baseFee, new(big.Int).Mul(auth.GasTipCap, big.NewInt(2)))
+
 		tx, err := contract.AddBlockHeaderBatch(auth, blocksToAdd[(batchesAmount*batchSize):])
 		if err != nil {
 			log.Fatalf("Error adding batch of blocks: %v", err)
 			return
 		}
 
-		log.Printf("Waiting mining...\n")
-		receipt, err := bind.WaitMined(context.Background(), client, tx)
+		log.Printf("Waiting mining... TX: %s\n", tx.Hash())
+		receipt, err := waitMined(context.Background(), client, tx)
 		if err != nil {
 			log.Fatalf("Error mining block: %v", err)
 			return
@@ -293,4 +336,29 @@ func getBlocksFromHeight(height uint64, rpc Rpc) [][]byte {
 	}
 
 	return headers
+}
+
+func waitMined(ctx context.Context, b bind.DeployBackend, tx *types.Transaction) (*types.Receipt, error) {
+	queryTicker := time.NewTicker(time.Second * 5)
+	defer queryTicker.Stop()
+
+	logger := ethlog.New("hash", tx.Hash())
+	for {
+		receipt, err := b.TransactionReceipt(ctx, tx.Hash())
+		if err == nil {
+			return receipt, nil
+		}
+
+		if errors.Is(err, ethereum.NotFound) {
+			logger.Trace("Transaction not yet mined")
+		} else {
+			logger.Trace("Receipt retrieval failed", "err", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-queryTicker.C:
+		}
+	}
 }
