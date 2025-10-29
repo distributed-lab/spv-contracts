@@ -86,12 +86,6 @@ interface ISPVGatewayV2 {
     function maxProofFrontierLength() external view returns (uint256);
 
     /**
-     * @notice Returns the address of the SPV token contract.
-     * @return The address of the SPV token.
-     */
-    function getSPVToken() external view returns (address);
-
-    /**
      * @notice Returns the root of the blocks tree.
      * @return The blocks tree root.
      */

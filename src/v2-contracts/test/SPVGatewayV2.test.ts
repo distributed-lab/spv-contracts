@@ -14,7 +14,7 @@ import {
   Reverter,
 } from "@test-helpers";
 
-import { SPVGatewayV2Mock, HistoryProofVerifier, SPVToken } from "@ethers-v6";
+import { SPVGatewayV2Mock, HistoryProofVerifier } from "@ethers-v6";
 import { wei } from "@/scripts";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -29,7 +29,6 @@ describe("SPVGatewayV2", () => {
   let OWNER: SignerWithAddress;
   let FIRST: SignerWithAddress;
 
-  let spvToken: SPVToken;
   let spvGatewayV2: SPVGatewayV2Mock;
 
   let historyProofVerifier: HistoryProofVerifier;
@@ -51,9 +50,7 @@ describe("SPVGatewayV2", () => {
       maxFrontierLength,
     ]);
 
-    spvToken = await ethers.deployContract("SPVToken", [spvGatewayV2]);
-
-    await spvGatewayV2.__SPVGatewayV2_init(spvToken);
+    await spvGatewayV2.__SPVGatewayV2_init();
 
     genesisBlockDataFilePath = getBlocksDataFilePath("genesis_block.json");
     firstBlocksDataFilePath = getBlocksDataFilePath("headers_1_30.json");
@@ -72,7 +69,8 @@ describe("SPVGatewayV2", () => {
       expect(await spvGatewayV2.chunkSize()).to.be.eq(chunkSize);
       expect(await spvGatewayV2.maxProofFrontierLength()).to.be.eq(maxFrontierLength);
 
-      expect(await spvGatewayV2.getSPVToken()).to.be.eq(spvToken);
+      expect(await spvGatewayV2.name()).to.be.eq("SPV Token");
+      expect(await spvGatewayV2.symbol()).to.be.eq("SPV");
       expect(await spvGatewayV2.getSPVTokenRewardsAmount()).to.be.eq(startRewardsAmount);
     });
   });
@@ -149,7 +147,7 @@ describe("SPVGatewayV2", () => {
       expect(tx)
         .to.emit(spvGatewayV2, "MainchainUpdated")
         .withArgs(newHeight, newHeadBlockHeader.parsedBlockHeader.chainwork, level2Tree.root);
-      expect(tx).to.changeTokenBalance(spvToken, OWNER, startRewardsAmount);
+      expect(tx).to.changeTokenBalance(spvGatewayV2, OWNER, startRewardsAmount);
     });
 
     it("should correctly update mainchain with proof for 4 blocks and default address in comm", async () => {
@@ -187,7 +185,7 @@ describe("SPVGatewayV2", () => {
       expect(tx)
         .to.emit(spvGatewayV2, "MainchainUpdated")
         .withArgs(newHeight, newHeadBlockHeader.parsedBlockHeader.chainwork, level2Tree.root);
-      expect(tx).to.changeTokenBalance(spvToken, OWNER, startRewardsAmount);
+      expect(tx).to.changeTokenBalance(spvGatewayV2, OWNER, startRewardsAmount);
     });
 
     it("should correctly update SPV token rewards amount", async () => {
@@ -222,7 +220,7 @@ describe("SPVGatewayV2", () => {
       expect(tx)
         .to.emit(spvGatewayV2, "SPVTokenRewardsAmountUpdated")
         .withArgs(startRewardsAmount / 2n);
-      expect(tx).to.changeTokenBalance(spvToken, OWNER, startRewardsAmount);
+      expect(tx).to.changeTokenBalance(spvGatewayV2, OWNER, startRewardsAmount);
     });
 
     it("should get exception if try to submit proof with lower chainwork", async () => {

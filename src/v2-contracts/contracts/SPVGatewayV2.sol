@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 import {ADeployerGuard} from "@solarity/solidity-lib/utils/ADeployerGuard.sol";
 import {BlockHeader} from "@solarity/solidity-lib/libs/bitcoin/BlockHeader.sol";
@@ -9,11 +9,10 @@ import {TxMerkleProof} from "@solarity/solidity-lib/libs/bitcoin/TxMerkleProof.s
 import {EndianConverter} from "@solarity/solidity-lib/libs/utils/EndianConverter.sol";
 
 import {ISPVGatewayV2} from "./interfaces/ISPVGatewayV2.sol";
-import {ISPVToken} from "./interfaces/tokens/ISPVToken.sol";
 
 import {ProofHelper} from "./libs/ProofHelper.sol";
 
-contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
+contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, ERC20PermitUpgradeable {
     using BlockHeader for bytes;
     using EndianConverter for bytes32;
     using ProofHelper for *;
@@ -29,7 +28,6 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
     uint256 public immutable maxProofFrontierLength;
 
     struct SPVGatewayV2Storage {
-        ISPVToken spvToken;
         uint256 spvTokenRewardsAmount;
         uint64 proofsCountFromHalving;
         uint64 mainchainHeight;
@@ -55,13 +53,11 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
         maxProofFrontierLength = maxProofFrontierLength_;
     }
 
-    function __SPVGatewayV2_init(address spvTokenAddr_) external initializer onlyDeployer {
-        SPVGatewayV2Storage storage $ = _getSPVGatewayV2Storage();
+    function __SPVGatewayV2_init() external initializer onlyDeployer {
+        __ERC20_init("SPV Token", "SPV");
+        __ERC20Permit_init("SPV Token");
 
-        ISPVToken spvToken = ISPVToken(spvTokenAddr_);
-
-        $.spvToken = spvToken;
-        _setSPVTokenRewardsAmount(INITIAL_SPV_TOKEN_REWARDS_AMOUNT * (10 ** spvToken.decimals()));
+        _setSPVTokenRewardsAmount(INITIAL_SPV_TOKEN_REWARDS_AMOUNT * (10 ** decimals()));
     }
 
     /// @inheritdoc ISPVGatewayV2
@@ -88,11 +84,6 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
         _updateTokenRewardsAmount();
 
         emit MainchainUpdated(newMainchainHeight_, newCumulativeWork_, newBlocksTreeRoot_);
-    }
-
-    /// @inheritdoc ISPVGatewayV2
-    function getSPVToken() external view returns (address) {
-        return address(_getSPVGatewayV2Storage().spvToken);
     }
 
     /// @inheritdoc ISPVGatewayV2
@@ -172,7 +163,7 @@ contract SPVGatewayV2 is ISPVGatewayV2, ADeployerGuard, Initializable {
 
         uint256 rewardsAmount_ = $.spvTokenRewardsAmount;
 
-        $.spvToken.mintTo(to_, rewardsAmount_);
+        _mint(to_, rewardsAmount_);
         $.proofsCountFromHalving++;
 
         emit SPVTokenRewardsSent(to_, rewardsAmount_);
