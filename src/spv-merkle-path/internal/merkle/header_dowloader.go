@@ -40,6 +40,9 @@ func downloadBlocks(from uint64, amount uint64, rpc Rpc) [][]byte {
 
 	for i := 0; i <= int(amount)/OneReqCount; i++ {
 		count := min(OneReqCount, int(amount)-OneReqCount*i)
+		if count == 0 {
+			return headers
+		}
 		start := int(from) + OneReqCount*i
 		log.Printf("Pulling blocks (%d) from block #%d\n", count, start)
 
