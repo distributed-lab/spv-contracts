@@ -188,6 +188,72 @@ describe("SPVGatewayV2", () => {
       expect(tx).to.changeTokenBalance(spvGatewayV2, OWNER, startRewardsAmount);
     });
 
+    it("should correctly update mainchain 50k, 70k and 100k blocks height", async () => {
+      const headersFilePath = getBlocksDataFilePath("headers_10k_50k_70k.json");
+      const blockTreeRoots = [
+        "0x8ff41848eace5eab2b8e471b6c4d18c119eef50aeeb7dfa2625c070be51c4398",
+        "0xdae36e8bc2e5d9d01a5a96c204e200e74715a46a5802dca09f95e71215b29071",
+        "0x840c9b764da7480d8961f33ebc5894eaf2513fd51530995423ab59eea78b402d",
+      ];
+
+      const startHeight = 10000;
+      const blockHeaders = getBlockHeaderDataBatch(headersFilePath, startHeight, 3);
+
+      let provedBlocksCount = 10001n;
+      let proofDirPath = getHistoryProofDirPath(provedBlocksCount, true);
+      let proof = getHistoryProofFromFile(proofDirPath);
+      let publicInputs = getHistoryProofPublicInputsFromFile(proofDirPath);
+
+      let tx = await spvGatewayV2.connect(FIRST).updateMainchain({
+        blocksCount: provedBlocksCount,
+        proof: proof,
+        publicInputs: publicInputs,
+      });
+
+      expect(await spvGatewayV2.getMainchainHeight()).to.be.eq(blockHeaders[0].height);
+      expect(await spvGatewayV2.getMainchainCumulativeWork()).to.be.eq(blockHeaders[0].parsedBlockHeader.chainwork);
+      expect(await spvGatewayV2.getBlocksTreeRoot()).to.be.eq(blockTreeRoots[0]);
+
+      expect(tx).to.emit(spvGatewayV2, "MainchainUpdated");
+      expect(tx).to.changeTokenBalance(spvGatewayV2, OWNER, startRewardsAmount);
+
+      provedBlocksCount = 50001n;
+      proofDirPath = getHistoryProofDirPath(provedBlocksCount, true);
+      proof = getHistoryProofFromFile(proofDirPath);
+      publicInputs = getHistoryProofPublicInputsFromFile(proofDirPath);
+
+      tx = await spvGatewayV2.connect(FIRST).updateMainchain({
+        blocksCount: provedBlocksCount,
+        proof: proof,
+        publicInputs: publicInputs,
+      });
+
+      expect(await spvGatewayV2.getMainchainHeight()).to.be.eq(blockHeaders[1].height);
+      expect(await spvGatewayV2.getMainchainCumulativeWork()).to.be.eq(blockHeaders[1].parsedBlockHeader.chainwork);
+      expect(await spvGatewayV2.getBlocksTreeRoot()).to.be.eq(blockTreeRoots[1]);
+
+      expect(tx).to.emit(spvGatewayV2, "MainchainUpdated");
+      expect(tx).to.changeTokenBalance(spvGatewayV2, OWNER, startRewardsAmount);
+
+      provedBlocksCount = 70001n;
+      proofDirPath = getHistoryProofDirPath(provedBlocksCount, true);
+      proof = getHistoryProofFromFile(proofDirPath);
+      publicInputs = getHistoryProofPublicInputsFromFile(proofDirPath);
+
+      tx = await spvGatewayV2.connect(FIRST).updateMainchain({
+        blocksCount: provedBlocksCount,
+        proof: proof,
+        publicInputs: publicInputs,
+      });
+
+      expect(await spvGatewayV2.getMainchainHeight()).to.be.eq(blockHeaders[2].height);
+      expect(await spvGatewayV2.getMainchainCumulativeWork()).to.be.eq(blockHeaders[2].parsedBlockHeader.chainwork);
+      expect(await spvGatewayV2.getBlocksTreeRoot()).to.be.eq(blockTreeRoots[2]);
+
+      expect(tx).to.emit(spvGatewayV2, "MainchainUpdated");
+      expect(tx).to.changeTokenBalance(spvGatewayV2, OWNER, startRewardsAmount);
+    });
+
     it("should correctly update SPV token rewards amount", async () => {
       const proofsToUpdate = 5n;
       const addrCommArr = [false, false, true, true, false];
