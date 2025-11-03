@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	ethlog "github.com/ethereum/go-ethereum/log"
-	"gitlab.com/distributed_lab/kit/kv"
 )
 
 const (
@@ -50,9 +49,8 @@ type Rpc struct {
 	Password string
 }
 
-func Sync() {
+func Sync(cfg config.Config) {
 	// get required data form config
-	cfg := config.New(kv.MustFromEnv())
 	node := cfg.GetNode()
 	key := cfg.GetPrivKey()
 	address := common.HexToAddress(cfg.GetAddress())

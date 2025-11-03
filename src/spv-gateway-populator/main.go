@@ -1,16 +1,13 @@
 package main
 
 import (
-	// "os"
+	"os"
 
-	// "github.com/distributed-lab/spv-contract-populator/internal/cli"
-	"github.com/distributed-lab/spv-contract-populator/internal/service/handlers"
+	"github.com/distributed-lab/spv-contract-populator/internal/cli"
 )
 
 func main() {
-	// if !cli.Run(os.Args) {
-	// 	os.Exit(1)
-	// }
-	
-	handlers.Sync()
+	if !cli.Run(os.Args) {
+		os.Exit(1)
+	}
 }
