@@ -1,0 +1,12 @@
+{
+    "rpc": {
+        "host": "",
+        "port": 0,
+        "user": "",
+        "password": ""
+    },
+    "blocks": {
+        "count": 900001
+    },
+    "from_checkpoint": false
+}

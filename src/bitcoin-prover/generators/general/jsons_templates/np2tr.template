@@ -1,0 +1,7 @@
+{{
+    "file_path": "app/{type}",
+    "script_sig": "{scriptSig}",
+    "current_tx": "{currentTx}",
+    "prev_tx": "{prevTx}",
+    "input_to_sign": {inputToSign}
+}}

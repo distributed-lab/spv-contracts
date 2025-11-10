@@ -1,0 +1,159 @@
+import json
+from typing import Dict
+from generators.utils.tx import Transaction
+from generators.utils.script import Script
+from generators.utils.opcodes_gen import generate
+from generators.constants import CONSTANTS_TEMPLATE, CONSTANTS_NR, PROVER_TEMPLATE, PROVER_TOML
+
+
+def get_config(path: str = "./generators/p2sh_p2wsh/config.json") -> Dict:
+    with open(path, "r") as f:
+        return json.load(f)
+
+
+def main():
+    print("Spending type: p2sh-p2wsh")
+    config = get_config()
+
+    currentTx = Transaction(config["current_tx"])
+    currentTx.cut_script_sigs()
+
+    vout = currentTx.inputs[config["input_to_sign"]].vout
+
+    prevTx = Transaction(config["prev_tx"])
+    prevTx.cut_script_sigs()
+
+    CURRENT_TX_INP_COUNT_SIZE = currentTx._get_compact_size_size(currentTx.input_count)
+    CURRENT_TX_INP_SIZE = sum(currentTx._get_input_size(inp)
+                            for inp in currentTx.inputs) + CURRENT_TX_INP_COUNT_SIZE
+    CURRENT_TX_OUT_COUNT_SIZE = currentTx._get_compact_size_size(currentTx.output_count)
+    CURRENT_TX_OUT_SIZE = sum(currentTx._get_output_size(out)
+                            for out in currentTx.outputs) + CURRENT_TX_OUT_COUNT_SIZE
+    CURRENT_TX_MAX_WITNESS_STACK_SIZE = 0 if currentTx.witness is None else max(
+        len(w.stack_items) for w in currentTx.witness)
+    CURRENT_TX_WITNESS_SIZE = sum(
+        currentTx._get_witness_size(wit) for wit in currentTx.witness)
+
+    PREV_TX_INP_COUNT_SIZE = prevTx._get_compact_size_size(prevTx.input_count)
+    PREV_TX_INP_SIZE = sum(prevTx._get_input_size(inp)
+                            for inp in prevTx.inputs) + PREV_TX_INP_COUNT_SIZE
+    PREV_TX_OUT_COUNT_SIZE = prevTx._get_compact_size_size(prevTx.output_count)
+    PREV_TX_OUT_SIZE = sum(prevTx._get_output_size(out)
+                            for out in prevTx.outputs) + PREV_TX_OUT_COUNT_SIZE
+    PREV_TX_MAX_WITNESS_STACK_SIZE = 0 if prevTx.witness is None else max(
+        len(w.stack_items) for w in prevTx.witness)
+    PREV_TX_WITNESS_SIZE = 0 if prevTx.witness is None else sum(
+        prevTx._get_witness_size(wit) for wit in prevTx.witness)
+
+    INPUT_TO_SIGN = config["input_to_sign"]
+
+    script_pub_key = prevTx.outputs[vout].script_pub_key
+    script_pub_key_size = prevTx.outputs[vout].script_pub_key_size
+
+    script_sig = config["script_sig"]
+    witness = currentTx.witness_to_hex_script(INPUT_TO_SIGN)
+
+    script = Script(
+        script_sig +
+        bytearray(script_pub_key).hex(),
+        currentTx,
+        config["input_to_sign"])
+    sizes = script.sizes
+
+    full_script_sig = bytearray.fromhex(script.script_elements[-4])
+    full_script_sig.pop(0)
+    full_ss = [168]
+    full_ss.extend(list(full_script_sig))
+    full_ss.extend([135])
+    full_script_sig = bytes(full_ss).hex()
+
+    parsed_script_sig = Script(
+        witness +
+        full_script_sig,
+        currentTx,
+        config["input_to_sign"],
+        [])
+    sizes = sizes | parsed_script_sig.sizes
+
+    rds = bytearray.fromhex(parsed_script_sig.script_elements[-4]).hex()
+
+    redeem_script = Script(rds,
+        currentTx,
+        config["input_to_sign"],
+        parsed_script_sig.script_elements[0:-4])
+    sizes = sizes | redeem_script.sizes
+    generate(sizes)
+
+    require_stack_size = max(
+        script.require_stack_size,
+        parsed_script_sig.require_stack_size,
+        redeem_script.require_stack_size)
+    max_element_size = max(
+        script.max_element_size,
+        parsed_script_sig.max_element_size,
+        redeem_script.max_element_size)
+
+    with open(config["file_path"] + CONSTANTS_TEMPLATE, "r") as file:
+        templateOpcodes = file.read()
+
+    opcodesFile = templateOpcodes.format(
+        currentTx=currentTx,
+        prevTx=prevTx,
+        currentTxInCountSize=CURRENT_TX_INP_COUNT_SIZE,
+        currentTxInSize=CURRENT_TX_INP_SIZE,
+        currentTxOutCountSize=CURRENT_TX_OUT_COUNT_SIZE,
+        currentTxOutSize=CURRENT_TX_OUT_SIZE,
+        currentTxMaxWitnessStackSize=CURRENT_TX_MAX_WITNESS_STACK_SIZE,
+        currentTxWitnessSize=CURRENT_TX_WITNESS_SIZE,
+        prevTxInCountSize=PREV_TX_INP_COUNT_SIZE,
+        prevTxInSize=PREV_TX_INP_SIZE,
+        prevTxOutCountSize=PREV_TX_OUT_COUNT_SIZE,
+        prevTxOutSize=PREV_TX_OUT_SIZE,
+        prevTxMaxWitnessStackSize=PREV_TX_MAX_WITNESS_STACK_SIZE,
+        prevTxWitnessSize=PREV_TX_WITNESS_SIZE,
+        isPrevSegwit=str(PREV_TX_WITNESS_SIZE != 0).lower(),
+        currentTxSize=currentTx._get_transaction_size() * 2,
+        prevTxSize=prevTx._get_transaction_size() * 2,
+        signSize=len(script_sig),
+        scriptPubKeySize=len(script_pub_key),
+        scriptPubKeySizeSize=currentTx._get_compact_size_size(script_pub_key_size),
+        redeemScriptSize=len(rds) // 2,
+        codesepRedeemScriptSize=redeem_script.script_len_codeseparator,
+        codesepRedeemScriptSizeSize=currentTx._get_compact_size_size(
+            redeem_script.script_len_codeseparator),
+        witnessFieldSize=len(witness),
+        redeemScriptOpcodesCount=redeem_script.opcodes,
+        stackSize=require_stack_size,
+        maxStackElementSize=max_element_size,
+        nOutputSize=currentTx._get_output_size(
+            currentTx.outputs[INPUT_TO_SIGN]) if len(
+            currentTx.outputs) > INPUT_TO_SIGN else 0,
+        inputToSign=INPUT_TO_SIGN,
+        inputToSignSize=currentTx._get_compact_size_size(INPUT_TO_SIGN),
+        nInputSize=currentTx._get_input_size(currentTx.inputs[INPUT_TO_SIGN]),
+        opcodesCount=parsed_script_sig.opcodes
+    )
+
+    with open(config["file_path"] + CONSTANTS_NR, "w") as file:
+        file.write(opcodesFile)
+
+    with open(config["file_path"] + PROVER_TEMPLATE, "r") as file:
+        templateProver = file.read()
+
+    currentTxData = currentTx.to_hex()
+    prevTxData = prevTx.to_hex()
+
+    proverFile = templateProver.format(
+        currentTxData=currentTxData,
+        prevTxData=prevTxData,
+        scriptSig=script_sig,
+        witnessScript=witness,
+        inputToSign=INPUT_TO_SIGN
+    )
+
+    with open(config["file_path"] + PROVER_TOML, "w") as file:
+        file.write(proverFile)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,6 @@
+target/*
+.venv/*
+*dev*
+*__pycache__*
+venv
+*blocks.json

@@ -1,0 +1,34 @@
+pub global CURRENT_TX_SIZE: u32 = {currentTxSize};
+pub global PREV_TX_SIZE: u32 = {prevTxSize};
+pub global UTXOS_SIZE: u32 = {utxosSize};
+pub global INPUT_WITNESS_SIZE: u32 = {inputWitnessSize};
+
+pub global CURRENT_TX_IN_COUNT: u32 = {currentTx.input_count};
+pub global CURRENT_TX_IN_COUNT_SIZE: u32 = {currentTxInCountSize};
+pub global CURRENT_TX_IN_SIZE: u32 = {currentTxInSize};
+pub global CURRENT_TX_OUT_COUNT: u32 = {currentTx.output_count};
+pub global CURRENT_TX_OUT_COUNT_SIZE: u32 = {currentTxOutCountSize};
+pub global CURRENT_TX_OUT_SIZE: u32 = {currentTxOutSize};
+pub global CURRENT_TX_MAX_WITNESS_STACK_SIZE: u32 = {currentTxMaxWitnessStackSize};
+pub global CURRENT_TX_WITNESS_SIZE: u32 = {currentTxWitnessSize};
+pub global IS_CURRENT_SEGWIT: bool = {isCurSegwit};
+
+pub global PREV_TX_IN_COUNT: u32 = {prevTx.input_count};
+pub global PREV_TX_IN_COUNT_SIZE: u32 = {prevTxInCountSize};
+pub global PREV_TX_IN_SIZE: u32 = {prevTxInSize};
+pub global PREV_TX_OUT_COUNT: u32 = {prevTx.output_count};
+pub global PREV_TX_OUT_COUNT_SIZE: u32 = {prevTxOutCountSize};
+pub global PREV_TX_OUT_SIZE: u32 = {prevTxOutSize};
+pub global PREV_TX_MAX_WITNESS_STACK_SIZE: u32 = {prevTxMaxWitnessStackSize};
+pub global PREV_TX_WITNESS_SIZE: u32 = {prevTxWitnessSize};
+pub global IS_PREV_SEGWIT: bool = {isPrevSegwit};
+
+pub global N_OUTPUT_SIZE: u32 = {nOutputSize};
+
+pub global SCRIPT_SIZE: u32 = {scriptSize};
+pub global SCRIPT_SIZE_SIZE: u32 = {scriptSizeSize};
+pub global SCRIPT_OPCODES_COUNT: u32 = {scriptOpcodesCount};
+pub global CONTROL_BLOCK_SIZE: u32 = {controlBlockSize};
+pub global STACK_SIZE: u32 = {stackSize};
+pub global MAX_STACK_ELEMENT_SIZE: u32 = {maxStackElementSize};
+
