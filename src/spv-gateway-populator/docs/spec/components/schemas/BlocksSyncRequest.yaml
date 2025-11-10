@@ -1,0 +1,6 @@
+type: object
+properties:
+  address:
+    type: string
+  from_block:
+    type: integer

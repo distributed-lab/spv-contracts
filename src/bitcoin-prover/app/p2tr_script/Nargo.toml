@@ -1,0 +1,11 @@
+[package]
+name = "p2tr_script"
+type = "bin"
+
+[dependencies]
+bvm = { path = "../../crates/bvm" }
+sign = { path = "../../crates/sign" }
+utils = { path = "../../crates/utils" }
+script = { path = "../../crates/script" }
+crypto = { path = "../../crates/crypto" }
+

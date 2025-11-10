@@ -1,0 +1,6 @@
+{{
+    "file_path": "app/{type}",
+    "current_tx": "{currentTx}",
+    "prev_tx": "{prevTx}",
+    "input_to_sign": {inputToSign}
+}}

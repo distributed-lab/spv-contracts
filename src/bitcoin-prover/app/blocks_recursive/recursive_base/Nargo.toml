@@ -1,0 +1,7 @@
+[package]
+name = "recursive_base"
+type = "bin"
+
+[dependencies]
+blocks_lib = { path = "../../../crates/blocks" }
+utils = { path = "../../../crates/utils" }
