@@ -1,0 +1,55 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "BaseHonkVerifier",
+  "sourceName": "contracts/verifiers/HistoryProofVerifier.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "ProofLengthWrong",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PublicInputsLengthWrong",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ShpleminiFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SumcheckFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "proof",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes32[]",
+          "name": "publicInputs",
+          "type": "bytes32[]"
+        }
+      ],
+      "name": "verify",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
